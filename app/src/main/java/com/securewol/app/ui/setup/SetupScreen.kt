@@ -19,9 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,16 +33,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.securewol.app.ui.theme.AccentCrimson
 import com.securewol.app.ui.theme.AccentEmerald
+import com.securewol.app.ui.theme.AccentEmeraldGlow
 import com.securewol.app.ui.theme.BgDark
 import com.securewol.app.ui.theme.KeypadButtonBg
 import com.securewol.app.ui.theme.SurfaceCard
 import com.securewol.app.ui.theme.SurfaceCardBorder
+import com.securewol.app.ui.theme.SurfaceCardElevated
+import com.securewol.app.ui.theme.SurfaceDark
 import com.securewol.app.ui.theme.TextMuted
 import com.securewol.app.ui.theme.TextPrimary
 import com.securewol.app.ui.theme.TextSecondary
@@ -67,38 +71,51 @@ fun SetupScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(BgDark)
-            .padding(horizontal = 24.dp, vertical = 32.dp),
+            .padding(horizontal = 24.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top Section: Header & Step indicator
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(modifier = Modifier.height(20.dp))
+        // Header Section
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(SurfaceCard)
-                    .border(1.dp, SurfaceCardBorder, CircleShape),
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        Brush.radialGradient(
+                            listOf(
+                                AccentEmerald.copy(alpha = 0.25f),
+                                AccentEmerald.copy(alpha = 0.05f)
+                            )
+                        )
+                    )
+                    .border(1.dp, AccentEmerald.copy(alpha = 0.4f), RoundedCornerShape(22.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Security,
+                    imageVector = Icons.Default.Shield,
                     contentDescription = "Security Shield",
                     tint = AccentEmerald,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
                 text = "Owner Device Setup",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp,
+                color = TextPrimary
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             val instructionText = when (uiState) {
                 is SetupUiState.EnterNewPin -> "Create a secure 6-digit Owner App PIN to bind this Android device"
@@ -127,14 +144,20 @@ fun SetupScreen(
                         modifier = Modifier
                             .size(16.dp)
                             .clip(CircleShape)
-                            .background(if (isFilled) AccentEmerald else SurfaceCard)
-                            .border(1.dp, if (isFilled) AccentEmerald else SurfaceCardBorder, CircleShape)
+                            .background(
+                                if (isFilled) AccentEmerald else SurfaceCard
+                            )
+                            .border(
+                                1.dp,
+                                if (isFilled) AccentEmerald else SurfaceCardBorder,
+                                CircleShape
+                            )
                     )
                 }
             }
         }
 
-        // Middle/Bottom: Keypad
+        // Keypad Section
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -143,14 +166,14 @@ fun SetupScreen(
                 listOf("1", "2", "3"),
                 listOf("4", "5", "6"),
                 listOf("7", "8", "9"),
-                listOf("RESET", "0", "DEL")
+                listOf("CLR", "0", "DEL")
             )
 
             for (row in rows) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 6.dp),
+                        .padding(vertical = 5.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     for (key in row) {
@@ -165,11 +188,11 @@ fun SetupScreen(
                                         imageVector = Icons.Default.Backspace,
                                         contentDescription = "Delete",
                                         tint = TextSecondary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
-                            "RESET" -> {
+                            "CLR" -> {
                                 KeypadCircleButton(onClick = {
                                     enteredDigits = ""
                                     viewModel.resetToStart()
@@ -177,6 +200,7 @@ fun SetupScreen(
                                     Text(
                                         text = "CLR",
                                         style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
                                         color = TextMuted
                                     )
                                 }
@@ -199,7 +223,7 @@ fun SetupScreen(
                                     Text(
                                         text = key,
                                         style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = FontWeight.Bold,
                                         color = TextPrimary
                                     )
                                 }
@@ -209,12 +233,13 @@ fun SetupScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                text = "Cryptographic keys are derived locally using PBKDF2 & Android Keystore",
+                text = "Cryptographic keys derived via PBKDF2 (100k rounds) & Android Keystore",
                 style = MaterialTheme.typography.labelSmall,
                 textAlign = TextAlign.Center,
+                fontSize = 10.sp,
                 color = TextMuted
             )
         }
@@ -228,9 +253,16 @@ fun KeypadCircleButton(
 ) {
     Box(
         modifier = Modifier
-            .size(72.dp)
+            .size(76.dp)
             .clip(CircleShape)
-            .background(KeypadButtonBg)
+            .background(
+                Brush.radialGradient(
+                    listOf(
+                        SurfaceCardElevated,
+                        SurfaceDark
+                    )
+                )
+            )
             .border(1.dp, SurfaceCardBorder, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center

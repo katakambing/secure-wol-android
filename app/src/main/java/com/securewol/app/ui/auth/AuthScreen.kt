@@ -34,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,9 +46,12 @@ import com.securewol.app.ui.setup.KeypadCircleButton
 import com.securewol.app.ui.theme.AccentAmber
 import com.securewol.app.ui.theme.AccentCrimson
 import com.securewol.app.ui.theme.AccentEmerald
+import com.securewol.app.ui.theme.AccentEmeraldGlow
 import com.securewol.app.ui.theme.BgDark
 import com.securewol.app.ui.theme.SurfaceCard
 import com.securewol.app.ui.theme.SurfaceCardBorder
+import com.securewol.app.ui.theme.SurfaceCardElevated
+import com.securewol.app.ui.theme.SurfaceDark
 import com.securewol.app.ui.theme.TextMuted
 import com.securewol.app.ui.theme.TextPrimary
 import com.securewol.app.ui.theme.TextSecondary
@@ -94,13 +99,19 @@ fun AuthScreen(
 
             Box(
                 modifier = Modifier
-                    .size(68.dp)
-                    .clip(CircleShape)
-                    .background(if (isLockedOut) AccentCrimson.copy(alpha = 0.15f) else SurfaceCard)
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(
+                        if (isLockedOut) Brush.radialGradient(
+                            listOf(AccentCrimson.copy(alpha = 0.25f), AccentCrimson.copy(alpha = 0.05f))
+                        ) else Brush.radialGradient(
+                            listOf(AccentEmerald.copy(alpha = 0.25f), AccentEmerald.copy(alpha = 0.05f))
+                        )
+                    )
                     .border(
                         1.dp,
-                        if (isLockedOut) AccentCrimson else SurfaceCardBorder,
-                        CircleShape
+                        if (isLockedOut) AccentCrimson.copy(alpha = 0.5f) else AccentEmerald.copy(alpha = 0.4f),
+                        RoundedCornerShape(22.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -108,16 +119,18 @@ fun AuthScreen(
                     imageVector = if (isLockedOut) Icons.Default.Warning else Icons.Default.Lock,
                     contentDescription = "Lock Status",
                     tint = if (isLockedOut) AccentCrimson else AccentEmerald,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(34.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                text = "Authenticate to continue",
+                text = if (isLockedOut) "Security Lockout" else "Authenticate",
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.5.sp,
+                color = TextPrimary
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -125,15 +138,15 @@ fun AuthScreen(
             if (isLockedOut) {
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(AccentCrimson.copy(alpha = 0.2f))
-                        .border(1.dp, AccentCrimson, RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(AccentCrimson.copy(alpha = 0.15f))
+                        .border(1.dp, AccentCrimson.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
-                        text = "Temporary Lockout: Try again in ${lockoutSeconds}s",
+                        text = "Progressive Lockout: Try again in ${lockoutSeconds}s",
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         color = AccentCrimson,
                         textAlign = TextAlign.Center
                     )
@@ -141,14 +154,14 @@ fun AuthScreen(
             } else {
                 val errorMsg = (uiState as? AuthUiState.Error)?.message
                 Text(
-                    text = errorMsg ?: "Scan fingerprint or enter owner PIN",
+                    text = errorMsg ?: "Scan owner biometric or enter 6-digit PIN",
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (errorMsg != null) AccentCrimson else TextSecondary,
                     textAlign = TextAlign.Center
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // PIN Dots Indicator
             Row(
@@ -216,7 +229,7 @@ fun AuthScreen(
                                         imageVector = Icons.Default.Fingerprint,
                                         contentDescription = "Biometric Scan",
                                         tint = if (isLockedOut) TextMuted else AccentEmerald,
-                                        modifier = Modifier.size(28.dp)
+                                        modifier = Modifier.size(30.dp)
                                     )
                                 }
                             }
@@ -230,7 +243,7 @@ fun AuthScreen(
                                         imageVector = Icons.Default.Backspace,
                                         contentDescription = "Delete",
                                         tint = if (isLockedOut) TextMuted else TextSecondary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
@@ -248,7 +261,7 @@ fun AuthScreen(
                                     Text(
                                         text = key,
                                         style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = FontWeight.Bold,
                                         color = if (isLockedOut) TextMuted else TextPrimary
                                     )
                                 }
@@ -258,12 +271,13 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             Text(
                 text = "Protected by progressive lockout & hardware keystore",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextMuted,
+                fontSize = 10.sp,
                 textAlign = TextAlign.Center
             )
         }

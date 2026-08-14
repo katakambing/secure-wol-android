@@ -21,8 +21,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Computer
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -39,15 +43,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.securewol.app.ui.theme.AccentCrimson
+import com.securewol.app.ui.theme.AccentCyan
 import com.securewol.app.ui.theme.AccentEmerald
+import com.securewol.app.ui.theme.AccentEmeraldGlow
 import com.securewol.app.ui.theme.BgDark
 import com.securewol.app.ui.theme.SurfaceCard
 import com.securewol.app.ui.theme.SurfaceCardBorder
+import com.securewol.app.ui.theme.SurfaceCardElevated
 import com.securewol.app.ui.theme.SurfaceDark
 import com.securewol.app.ui.theme.TextMuted
 import com.securewol.app.ui.theme.TextPrimary
@@ -76,7 +87,7 @@ fun PcEditScreen(
                     onNavigateBack()
                 }
                 is PcEditUiEvent.Deleted -> {
-                    Toast.makeText(context, "PC configuration deleted", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "PC configuration removed", Toast.LENGTH_SHORT).show()
                     onNavigateBack()
                 }
                 is PcEditUiEvent.Error -> {
@@ -99,37 +110,58 @@ fun PcEditScreen(
     Scaffold(
         containerColor = BgDark,
         topBar = {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(SurfaceDark)
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = TextPrimary
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = onNavigateBack,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(SurfaceCard)
+                                .border(1.dp, SurfaceCardBorder, RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = if (viewModel.isEditing) "Edit Target PC" else "Configure New PC",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
                         )
                     }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (viewModel.isEditing) "Edit PC" else "Add New PC",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
 
-                if (viewModel.isEditing) {
-                    IconButton(onClick = { viewModel.delete() }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete PC",
-                            tint = AccentCrimson
-                        )
+                    if (viewModel.isEditing) {
+                        IconButton(
+                            onClick = { viewModel.delete() },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(SurfaceCard)
+                                .border(1.dp, AccentCrimson.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete PC",
+                                tint = AccentCrimson,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -143,107 +175,178 @@ fun PcEditScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Section 1: PC Identification Card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(SurfaceCard)
-                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(8.dp))
-                    .padding(12.dp)
+                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
             ) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = AccentEmerald,
-                        modifier = Modifier
-                            .size(20.dp)
-                            .padding(top = 2.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "PC configuration is encrypted using Android Keystore AES-256 and never leaves your local network.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Computer,
+                            contentDescription = null,
+                            tint = AccentEmerald,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "PC IDENTIFICATION",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = TextPrimary
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { viewModel.onNameChanged(it) },
+                        label = { Text("PC Name (e.g. Master Workstation)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        shape = RoundedCornerShape(10.dp)
                     )
                 }
             }
 
-            OutlinedTextField(
-                value = name,
-                onValueChange = { viewModel.onNameChanged(it) },
-                label = { Text("PC Name (e.g. Gaming Rig, Office Workstation)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = textFieldColors
-            )
+            // Section 2: Network Coordinates Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SurfaceCard)
+                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Lan,
+                            contentDescription = null,
+                            tint = AccentCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "NETWORK COORDINATES",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = TextPrimary
+                        )
+                    }
 
-            OutlinedTextField(
-                value = mac,
-                onValueChange = { viewModel.onMacChanged(it) },
-                label = { Text("Target MAC Address (e.g. AA:BB:CC:DD:EE:FF)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = textFieldColors
-            )
+                    OutlinedTextField(
+                        value = mac,
+                        onValueChange = { viewModel.onMacChanged(it) },
+                        label = { Text("Target MAC Address (e.g. 34:5A:60:CF:A4:87)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        shape = RoundedCornerShape(10.dp)
+                    )
 
-            OutlinedTextField(
-                value = broadcast,
-                onValueChange = { viewModel.onBroadcastChanged(it) },
-                label = { Text("Broadcast Address (Default: 255.255.255.255)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = textFieldColors
-            )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = ip,
+                            onValueChange = { viewModel.onIpChanged(it) },
+                            label = { Text("Local IP (e.g. 192.168.0.12)") },
+                            modifier = Modifier.weight(1.4f),
+                            singleLine = true,
+                            colors = textFieldColors,
+                            shape = RoundedCornerShape(10.dp)
+                        )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = ip,
-                    onValueChange = { viewModel.onIpChanged(it) },
-                    label = { Text("Local IP (Optional)") },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    colors = textFieldColors
-                )
+                        OutlinedTextField(
+                            value = port,
+                            onValueChange = { viewModel.onPortChanged(it) },
+                            label = { Text("UDP Port") },
+                            modifier = Modifier.weight(0.8f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = textFieldColors,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                    }
 
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { viewModel.onPortChanged(it) },
-                    label = { Text("UDP Port") },
-                    modifier = Modifier.width(100.dp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    colors = textFieldColors
-                )
+                    OutlinedTextField(
+                        value = broadcast,
+                        onValueChange = { viewModel.onBroadcastChanged(it) },
+                        label = { Text("Subnet Broadcast (Default: 255.255.255.255)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
             }
 
-            OutlinedTextField(
-                value = secureOn,
-                onValueChange = { viewModel.onSecureOnChanged(it) },
-                label = { Text("SecureOn Password (Optional 6-byte hex)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = textFieldColors
-            )
+            // Section 3: Security & Companion Pairing Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SurfaceCard)
+                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Key,
+                            contentDescription = null,
+                            tint = AccentEmerald,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "SECURITY & COMPANION PAIRING",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            color = TextPrimary
+                        )
+                    }
 
-            OutlinedTextField(
-                value = agentAuthToken,
-                onValueChange = { viewModel.onAgentAuthTokenChanged(it) },
-                label = { Text("PC Companion Secret Key (Optional / Pre-shared)") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                colors = textFieldColors
-            )
+                    OutlinedTextField(
+                        value = agentAuthToken,
+                        onValueChange = { viewModel.onAgentAuthTokenChanged(it) },
+                        label = { Text("PC Companion Secret Key (Optional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        colors = textFieldColors,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    OutlinedTextField(
+                        value = secureOn,
+                        onValueChange = { viewModel.onSecureOnChanged(it) },
+                        label = { Text("SecureOn Password (Optional 6-byte hex)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = textFieldColors,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            }
 
             if (errorMessage != null) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(AccentCrimson.copy(alpha = 0.15f))
-                        .border(1.dp, AccentCrimson, RoundedCornerShape(8.dp))
-                        .padding(12.dp)
+                        .border(1.dp, AccentCrimson, RoundedCornerShape(10.dp))
+                        .padding(14.dp)
                 ) {
                     Text(
                         text = errorMessage!!,
@@ -254,25 +357,32 @@ fun PcEditScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
+            // S+ Glowing Save Button
             Button(
                 onClick = { viewModel.save() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(50.dp)
+                    .shadow(10.dp, RoundedCornerShape(12.dp), spotColor = AccentEmeraldGlow),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = AccentEmerald,
                     contentColor = BgDark
                 ),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(imageVector = Icons.Default.Check, contentDescription = null)
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (viewModel.isEditing) "Save Changes" else "Save PC Configuration",
+                    text = if (viewModel.isEditing) "SAVE CHANGES" else "SAVE PC CONFIGURATION",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.8.sp
                 )
             }
         }

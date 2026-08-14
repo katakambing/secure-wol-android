@@ -3,14 +3,18 @@ package com.securewol.app.ui.dashboard
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,12 +38,15 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.NetworkCheck
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,8 +70,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +88,7 @@ import com.securewol.app.ui.theme.AccentAmber
 import com.securewol.app.ui.theme.AccentCrimson
 import com.securewol.app.ui.theme.AccentCyan
 import com.securewol.app.ui.theme.AccentEmerald
+import com.securewol.app.ui.theme.AccentEmeraldGlow
 import com.securewol.app.ui.theme.AccentIndigo
 import com.securewol.app.ui.theme.BgDark
 import com.securewol.app.ui.theme.SurfaceCard
@@ -122,69 +133,144 @@ fun DashboardScreen(
     Scaffold(
         containerColor = BgDark,
         topBar = {
-            Row(
+            // S+ Tier Glassmorphic Header Hub
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceDark)
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(SurfaceDark, BgDark.copy(alpha = 0.95f))
+                        )
+                    )
+                    .border(
+                        1.dp,
+                        Brush.verticalGradient(listOf(SurfaceCardBorder, Color.Transparent)),
+                        RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp)
+                    )
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(AccentEmerald.copy(alpha = 0.15f))
-                            .border(1.dp, AccentEmerald.copy(alpha = 0.3f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = "Shield",
-                            tint = AccentEmerald,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "SECURE WOL",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = if (isPrivacyModeEnabled) "Shield Active • Data Masked" else "Unmasked View • Local Only",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            color = if (isPrivacyModeEnabled) AccentEmerald else AccentAmber
-                        )
-                    }
-                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Glowing Shield Emblem
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(
+                                            AccentEmerald.copy(alpha = 0.25f),
+                                            AccentEmerald.copy(alpha = 0.05f)
+                                        )
+                                    )
+                                )
+                                .border(1.dp, AccentEmerald.copy(alpha = 0.4f), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = "Shield",
+                                tint = AccentEmerald,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = { isPrivacyModeEnabled = !isPrivacyModeEnabled }) {
-                        Icon(
-                            imageVector = if (isPrivacyModeEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = "Toggle Privacy Shield",
-                            tint = if (isPrivacyModeEnabled) AccentEmerald else TextSecondary
-                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "SECURE WOL",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.2.sp,
+                                    color = TextPrimary
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(AccentEmerald.copy(alpha = 0.2f))
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "PRO",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = AccentEmeraldGlow
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (isPrivacyModeEnabled) "🔒 Zero-Trust • Data Masked" else "🌐 Local Network • Unmasked",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 11.sp,
+                                color = if (isPrivacyModeEnabled) AccentEmerald else AccentAmber
+                            )
+                        }
                     }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = "Security Settings",
-                            tint = TextSecondary
-                        )
-                    }
-                    IconButton(onClick = { viewModel.lockAppNow() }) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Lock App Now",
-                            tint = AccentAmber
-                        )
+
+                    // Action Controls
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        // Privacy Mask Toggle
+                        IconButton(
+                            onClick = { isPrivacyModeEnabled = !isPrivacyModeEnabled },
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(SurfaceCard)
+                                .border(1.dp, SurfaceCardBorder, RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(
+                                imageVector = if (isPrivacyModeEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = "Toggle Privacy Mask",
+                                tint = if (isPrivacyModeEnabled) AccentEmerald else TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Settings
+                        IconButton(
+                            onClick = onNavigateToSettings,
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(SurfaceCard)
+                                .border(1.dp, SurfaceCardBorder, RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = "Security Settings",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        // Instant Lock
+                        IconButton(
+                            onClick = { viewModel.lockAppNow() },
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(SurfaceCard)
+                                .border(1.dp, AccentAmber.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Lock App Now",
+                                tint = AccentAmber,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -194,9 +280,15 @@ fun DashboardScreen(
                 onClick = onNavigateToAddPc,
                 containerColor = AccentEmerald,
                 contentColor = BgDark,
-                shape = CircleShape
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .shadow(12.dp, RoundedCornerShape(16.dp), spotColor = AccentEmeraldGlow)
             ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Add PC", modifier = Modifier.size(28.dp))
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add PC",
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     ) { paddingValues ->
@@ -210,21 +302,21 @@ fun DashboardScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     item {
-                        // Top Status Bar Banner
+                        // S+ Grade Live Monitoring Telemetry Bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     Brush.horizontalGradient(
                                         listOf(SurfaceCardElevated, SurfaceDark)
                                     )
                                 )
-                                .border(1.dp, SurfaceCardBorder, RoundedCornerShape(12.dp))
+                                .border(1.dp, SurfaceCardBorder, RoundedCornerShape(14.dp))
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Row(
@@ -233,28 +325,47 @@ fun DashboardScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    PulsingLiveDot()
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    SPlusPulsingRadar()
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = "NETWORK TELEMETRY",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.8.sp,
+                                            color = TextPrimary
+                                        )
+                                        Text(
+                                            text = "Passive ping probe active (every 4s)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 9.sp,
+                                            color = TextMuted
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(AccentEmerald.copy(alpha = 0.12f))
+                                        .border(1.dp, AccentEmerald.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
                                     Text(
-                                        text = if (isPrivacyModeEnabled) "ZERO-TRUST SHIELD ACTIVE" else "LIVE NETWORK MONITORING",
+                                        text = "${pcList.size} Target PC",
                                         style = MaterialTheme.typography.labelSmall,
+                                        color = AccentEmerald,
                                         fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
+                                        fontSize = 11.sp
                                     )
                                 }
-                                Text(
-                                    text = "${pcList.size} PC Guarded",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AccentEmerald,
-                                    fontWeight = FontWeight.SemiBold
-                                )
                             }
                         }
                     }
 
                     items(pcList, key = { it.id }) { pc ->
                         val status = pcStatusMap[pc.id] ?: PcPowerStatus.CHECKING
-                        PcDeviceCard(
+                        SPlusPcDeviceCard(
                             pc = pc,
                             status = status,
                             isPrivacyMode = isPrivacyModeEnabled,
@@ -275,13 +386,21 @@ fun DashboardScreen(
                     containerColor = SurfaceDark,
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.PowerSettingsNew,
-                                contentDescription = null,
-                                tint = AccentEmerald,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(AccentEmerald.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PowerSettingsNew,
+                                    contentDescription = null,
+                                    tint = AccentEmerald,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Power On PC?",
                                 style = MaterialTheme.typography.titleLarge,
@@ -293,7 +412,7 @@ fun DashboardScreen(
                     text = {
                         Column {
                             Text(
-                                text = "Send authenticated Wake-on-LAN Magic Packet to wake up:",
+                                text = "Send cryptographically authenticated Wake-on-LAN Magic Packet to:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = TextSecondary
                             )
@@ -301,12 +420,12 @@ fun DashboardScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(SurfaceCard)
-                                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(10.dp))
-                                    .padding(14.dp)
+                                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(12.dp))
+                                    .padding(16.dp)
                             ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Text(
                                         text = target.name,
                                         style = MaterialTheme.typography.titleMedium,
@@ -337,7 +456,7 @@ fun DashboardScreen(
                                 containerColor = AccentEmerald,
                                 contentColor = BgDark
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("⚡ POWER ON", fontWeight = FontWeight.Bold)
                         }
@@ -346,7 +465,7 @@ fun DashboardScreen(
                         OutlinedButton(
                             onClick = { viewModel.dismissPowerOnConfirmation() },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("Cancel")
                         }
@@ -372,7 +491,7 @@ fun DashboardScreen(
                     },
                     text = {
                         Text(
-                            text = "Send authenticated ${action.displayName.lowercase()} signal to ${targetPc.name} (${targetPc.ipAddress})?",
+                            text = "Send authenticated ${action.displayName.lowercase()} signal to ${targetPc.name} (${if (isPrivacyModeEnabled) targetPc.maskedIp() else targetPc.ipAddress})?",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )
@@ -384,7 +503,7 @@ fun DashboardScreen(
                                 containerColor = if (action == RemotePowerAction.SHUTDOWN) AccentCrimson else AccentAmber,
                                 contentColor = TextPrimary
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text(action.displayName, fontWeight = FontWeight.Bold)
                         }
@@ -393,7 +512,7 @@ fun DashboardScreen(
                         OutlinedButton(
                             onClick = { viewModel.dismissRemoteAction() },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("Cancel")
                         }
@@ -401,7 +520,7 @@ fun DashboardScreen(
                 )
             }
 
-            // Companion Agent Setup Guide Modal (If PC Companion is not running)
+            // Companion Agent Setup Guide Modal
             if (agentSetupPc != null) {
                 val pc = agentSetupPc!!
                 AlertDialog(
@@ -417,7 +536,7 @@ fun DashboardScreen(
                     },
                     title = {
                         Text(
-                            text = "PC Companion Agent Required",
+                            text = "PC Companion Receiver Required",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
@@ -426,37 +545,30 @@ fun DashboardScreen(
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                text = "To use Sleep, Restart, and Shut Down from your phone, the companion receiver must be running on your PC:",
+                                text = "To execute Sleep, Restart, and Shut Down from your phone, open the Control Center on your PC:",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = TextSecondary
                             )
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(SurfaceCard)
-                                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(8.dp))
-                                    .padding(12.dp)
+                                    .border(1.dp, SurfaceCardBorder, RoundedCornerShape(10.dp))
+                                    .padding(14.dp)
                             ) {
-                                Column {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(
-                                        text = "1. Open on PC:",
+                                        text = "Desktop Shortcut:",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = AccentEmerald
                                     )
                                     Text(
-                                        text = "SecureWolApp\\windows-agent",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontFamily = FontFamily.Monospace,
+                                        text = "Secure WOL Control Center",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontWeight = FontWeight.SemiBold,
                                         color = TextPrimary
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "2. Double-click: start-agent.bat",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = AccentCyan
                                     )
                                 }
                             }
@@ -469,9 +581,9 @@ fun DashboardScreen(
                                 containerColor = AccentEmerald,
                                 contentColor = BgDark
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Text("Got It", fontWeight = FontWeight.Bold)
+                            Text("Understood", fontWeight = FontWeight.Bold)
                         }
                     }
                 )
@@ -516,7 +628,7 @@ fun DashboardScreen(
                                 containerColor = AccentCrimson,
                                 contentColor = TextPrimary
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("Remove", fontWeight = FontWeight.Bold)
                         }
@@ -525,7 +637,7 @@ fun DashboardScreen(
                         OutlinedButton(
                             onClick = { pcToDelete = null },
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("Cancel")
                         }
@@ -536,8 +648,11 @@ fun DashboardScreen(
     }
 }
 
+/**
+ * S+ Grade PC Device Card
+ */
 @Composable
-fun PcDeviceCard(
+fun SPlusPcDeviceCard(
     pc: PcDevice,
     status: PcPowerStatus,
     isPrivacyMode: Boolean = true,
@@ -551,21 +666,28 @@ fun PcDeviceCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(
                 Brush.verticalGradient(
-                    listOf(SurfaceCardElevated, SurfaceCard)
+                    listOf(
+                        if (isOnline) Color(0xFF142436) else SurfaceCardElevated,
+                        SurfaceCard
+                    )
                 )
             )
             .border(
                 1.dp,
-                if (isOnline) AccentEmerald.copy(alpha = 0.45f) else SurfaceCardBorder,
-                RoundedCornerShape(16.dp)
+                if (isOnline) Brush.verticalGradient(
+                    listOf(AccentEmerald.copy(alpha = 0.6f), AccentEmerald.copy(alpha = 0.15f))
+                ) else Brush.verticalGradient(
+                    listOf(SurfaceCardBorder, Color(0xFF0F1826))
+                ),
+                RoundedCornerShape(20.dp)
             )
             .padding(18.dp)
     ) {
         Column {
-            // Header Row: Icon + Name + Online Badge + Actions
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -577,13 +699,15 @@ fun PcDeviceCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(if (isOnline) AccentEmerald.copy(alpha = 0.15f) else SurfaceDark)
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (isOnline) AccentEmerald.copy(alpha = 0.15f) else SurfaceDark
+                            )
                             .border(
                                 1.dp,
                                 if (isOnline) AccentEmerald.copy(alpha = 0.4f) else SurfaceCardBorder,
-                                CircleShape
+                                RoundedCornerShape(14.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -591,10 +715,12 @@ fun PcDeviceCard(
                             imageVector = Icons.Default.Computer,
                             contentDescription = "PC",
                             tint = if (isOnline) AccentEmerald else TextMuted,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
                     Column {
                         Text(
                             text = pc.name,
@@ -602,15 +728,17 @@ fun PcDeviceCard(
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        // Status Badge
+                        Spacer(modifier = Modifier.height(3.dp))
+                        // Status Beacon Badge
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(if (isOnline) AccentEmerald.copy(alpha = 0.15f) else SurfaceDark)
+                                .background(
+                                    if (isOnline) AccentEmerald.copy(alpha = 0.15f) else SurfaceDark
+                                )
                                 .border(
                                     1.dp,
-                                    if (isOnline) AccentEmerald.copy(alpha = 0.3f) else SurfaceCardBorder,
+                                    if (isOnline) AccentEmerald.copy(alpha = 0.35f) else SurfaceCardBorder,
                                     RoundedCornerShape(20.dp)
                                 )
                                 .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -624,10 +752,10 @@ fun PcDeviceCard(
                                 )
                                 Spacer(modifier = Modifier.width(5.dp))
                                 Text(
-                                    text = if (isOnline) "ONLINE" else "ASLEEP / OFF",
+                                    text = if (isOnline) "🟢 ONLINE" else "⚪ ASLEEP / OFF",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (isOnline) AccentEmerald else TextMuted,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.ExtraBold,
                                     fontSize = 10.sp
                                 )
                             }
@@ -635,101 +763,119 @@ fun PcDeviceCard(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onEdit) {
+                // Quick Edit/Delete
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier.size(32.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit PC",
-                            tint = TextMuted,
-                            modifier = Modifier.size(20.dp)
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onDelete) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete PC",
-                            tint = AccentCrimson.copy(alpha = 0.6f),
-                            modifier = Modifier.size(20.dp)
+                            tint = AccentCrimson.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Network Chips Row
+            // Specs Telemetry Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                NetworkInfoChip(
+                SPlusChip(
+                    icon = Icons.Default.Wifi,
                     label = "IP",
                     value = if (isPrivacyMode) pc.maskedIp() else pc.ipAddress.ifBlank { "Auto" },
-                    color = AccentCyan
+                    color = AccentCyan,
+                    modifier = Modifier.weight(1.1f)
                 )
-                NetworkInfoChip(
+                SPlusChip(
+                    icon = Icons.Default.Shield,
                     label = "MAC",
                     value = if (isPrivacyMode) pc.maskedMac() else pc.macAddress,
-                    color = AccentEmerald
+                    color = AccentEmerald,
+                    modifier = Modifier.weight(1.3f)
                 )
-                NetworkInfoChip(
+                SPlusChip(
+                    icon = Icons.Default.NetworkCheck,
                     label = "PORT",
                     value = "${pc.port}",
-                    color = TextMuted
+                    color = TextMuted,
+                    modifier = Modifier.weight(0.8f)
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Power Control Section
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Main POWER ON Button (Always available for WoL)
+            // Power Actions Matrix
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // S+ Tier Glowing Wake-on-LAN Button
                 Button(
                     onClick = onPowerOn,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(46.dp),
+                        .height(48.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            spotColor = AccentEmeraldGlow
+                        ),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = AccentEmerald,
                         contentColor = BgDark
                     ),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.PowerSettingsNew,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "POWER ON (WAKE-ON-LAN)",
                         style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.6.sp
                     )
                 }
 
-                // Secondary Power Action Pills (Sleep, Restart, Shutdown)
+                // S+ Tier Secondary Power Pills (Sleep, Restart, Shut Down)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    PowerPillButton(
+                    SPlusPowerPill(
                         text = "🌙 Sleep",
                         color = AccentIndigo,
                         modifier = Modifier.weight(1f),
                         onClick = { onRemoteAction(RemotePowerAction.SLEEP) }
                     )
-                    PowerPillButton(
+                    SPlusPowerPill(
                         text = "🔄 Restart",
                         color = AccentAmber,
                         modifier = Modifier.weight(1f),
                         onClick = { onRemoteAction(RemotePowerAction.RESTART) }
                     )
-                    PowerPillButton(
+                    SPlusPowerPill(
                         text = "🛑 Shut Down",
                         color = AccentCrimson,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1.1f),
                         onClick = { onRemoteAction(RemotePowerAction.SHUTDOWN) }
                     )
                 }
@@ -739,35 +885,46 @@ fun PcDeviceCard(
 }
 
 @Composable
-fun NetworkInfoChip(label: String, value: String, color: Color) {
+fun SPlusChip(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
             .background(SurfaceDark)
-            .border(1.dp, SurfaceCardBorder, RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .border(1.dp, SurfaceCardBorder, RoundedCornerShape(10.dp))
+            .padding(horizontal = 8.dp, vertical = 7.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "$label: ",
-                style = MaterialTheme.typography.labelSmall,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                color = color
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(12.dp)
             )
+            Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.labelSmall,
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace,
-                color = TextSecondary
+                fontWeight = FontWeight.SemiBold,
+                color = TextSecondary,
+                maxLines = 1
             )
         }
     }
 }
 
 @Composable
-fun PowerPillButton(
+fun SPlusPowerPill(
     text: String,
     color: Color,
     modifier: Modifier = Modifier,
@@ -775,42 +932,64 @@ fun PowerPillButton(
 ) {
     Box(
         modifier = modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .height(40.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(SurfaceDark)
-            .border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = color
+            fontWeight = FontWeight.Bold,
+            color = color,
+            maxLines = 1
         )
     }
 }
 
 @Composable
-fun PulsingLiveDot() {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val alpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1.0f,
+fun SPlusPulsingRadar() {
+    val infiniteTransition = rememberInfiniteTransition(label = "radar")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 1.4f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "scale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 0.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         ),
         label = "alpha"
     )
 
     Box(
-        modifier = Modifier
-            .size(8.dp)
-            .clip(CircleShape)
-            .background(AccentEmerald.copy(alpha = alpha))
-    )
+        modifier = Modifier.size(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(16.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(AccentEmerald.copy(alpha = alpha))
+        )
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(AccentEmerald)
+        )
+    }
 }
 
 @Composable
@@ -824,39 +1003,43 @@ fun EmptyPcState(onAddPc: () -> Unit) {
     ) {
         Box(
             modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(SurfaceCardElevated)
-                .border(1.dp, SurfaceCardBorder, CircleShape),
+                .size(90.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .background(
+                    Brush.radialGradient(
+                        listOf(SurfaceCardElevated, SurfaceDark)
+                    )
+                )
+                .border(1.dp, AccentEmerald.copy(alpha = 0.3f), RoundedCornerShape(26.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Computer,
                 contentDescription = null,
                 tint = AccentEmerald,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(44.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "No Target PCs Configured",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
+            text = "No Guarded PCs Configured",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black,
             color = TextPrimary
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Add your local desktop or server to securely trigger Wake-on-LAN and remote power controls with biometric authentication.",
+            text = "Configure your desktop or server to securely trigger Wake-on-LAN and zero-trust remote power commands with biometric hardware security.",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         Button(
             onClick = onAddPc,
@@ -864,10 +1047,11 @@ fun EmptyPcState(onAddPc: () -> Unit) {
                 containerColor = AccentEmerald,
                 contentColor = BgDark
             ),
-            shape = RoundedCornerShape(10.dp)
+            shape = RoundedCornerShape(12.dp),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp)
         ) {
             Icon(imageVector = Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text("Add PC Configuration", fontWeight = FontWeight.Bold)
         }
     }

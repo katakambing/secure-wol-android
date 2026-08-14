@@ -31,8 +31,26 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+import ctypes
+
+def put_pc_to_sleep():
+    """Puts PC into true ACPI S3 Standby Sleep with Wake-on-LAN and all wake events ENABLED."""
+    def _sleep_worker():
+        time.sleep(0.5)
+        # SetSuspendState(bHibernate=0, bForce=0, bWakeupEventsDisabled=0)
+        ctypes.windll.powrprof.SetSuspendState(0, 0, 0)
+    threading.Thread(target=_sleep_worker, daemon=True).start()
+
 class PowerCommandHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        global AGENT_RUNNING
+        if not AGENT_RUNNING:
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"inactive"}')
+            return
+
         if self.path in ("/status", "/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -45,16 +63,28 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
+        global AGENT_RUNNING
+        if not AGENT_RUNNING:
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status":"inactive"}')
+            if LOG_CALLBACK:
+                LOG_CALLBACK("Blocked incoming phone signal (Service is TURNED OFF).")
+            return
+
         if self.path == "/sleep":
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"sleeping"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK("Received SLEEP command! Putting PC to sleep...")
-            subprocess.Popen(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"])
+                LOG_CALLBACK("Received SLEEP command! Putting PC to S3 sleep (WoL enabled)...")
+            put_pc_to_sleep()
 
         elif self.path == "/restart":
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"restarting"}')
             if LOG_CALLBACK:
@@ -63,6 +93,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
 
         elif self.path == "/shutdown":
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"shutting_down"}')
             if LOG_CALLBACK:
@@ -89,11 +120,13 @@ def stop_server():
     global HTTP_SERVER, AGENT_RUNNING
     AGENT_RUNNING = False
     if HTTP_SERVER:
-        try:
-            HTTP_SERVER.shutdown()
-            HTTP_SERVER.server_close()
-        except Exception:
-            pass
+        def _shutdown_worker():
+            try:
+                HTTP_SERVER.shutdown()
+                HTTP_SERVER.server_close()
+            except Exception:
+                pass
+        threading.Thread(target=_shutdown_worker, daemon=True).start()
         HTTP_SERVER = None
 
 

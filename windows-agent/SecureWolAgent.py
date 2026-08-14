@@ -7,10 +7,19 @@ from your authenticated Secure WOL Android phone.
 
 import os
 import sys
+import time
+import ctypes
+import threading
 import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 PORT = 9090
+
+def put_pc_to_sleep():
+    def _sleep_worker():
+        time.sleep(0.5)
+        ctypes.windll.powrprof.SetSuspendState(0, 0, 0)
+    threading.Thread(target=_sleep_worker, daemon=True).start()
 
 class PowerCommandHandler(BaseHTTPRequestHandler):
 
@@ -27,11 +36,11 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/sleep":
             self.send_response(200)
+            self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"sleeping"}')
-            print("Received SLEEP command. Putting PC to sleep...")
-            # Suspend/Sleep
-            subprocess.Popen(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"])
+            print("Received SLEEP command. Putting PC to S3 sleep (WoL enabled)...")
+            put_pc_to_sleep()
 
         elif self.path == "/restart":
             self.send_response(200)

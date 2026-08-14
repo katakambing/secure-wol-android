@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Secure WOL</string>
+    <string name="auth_prompt_title">Authenticate to continue</string>
+    <string name="auth_prompt_subtitle">Confirm your biometric identity or device PIN to access PC controls</string>
+    <string name="auth_negative_button">Use App PIN</string>
+    
+    <string name="security_disclaimer">This private tool utilizes Android Keystore hardware encryption, strict session authorization, and device binding to guard Wake-on-LAN operations.</string>
+</resources>

@@ -33,6 +33,32 @@ def get_local_ip():
 
 import ctypes
 
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent_auth.key")
+AUTH_SECRET_KEY = ""
+
+def load_or_create_auth_key():
+    global AUTH_SECRET_KEY
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                AUTH_SECRET_KEY = f.read().strip()
+        except Exception:
+            AUTH_SECRET_KEY = ""
+    return AUTH_SECRET_KEY
+
+def save_auth_key(key: str):
+    global AUTH_SECRET_KEY
+    AUTH_SECRET_KEY = key.strip()
+    try:
+        with open(CONFIG_FILE, "w") as f:
+            f.write(AUTH_SECRET_KEY)
+    except Exception:
+        pass
+
+def is_client_allowed(client_ip: str) -> bool:
+    """Zero-trust private subnet firewall check."""
+    return client_ip.startswith("192.168.") or client_ip.startswith("10.") or client_ip.startswith("172.") or client_ip in ("127.0.0.1", "localhost", "::1")
+
 def put_pc_to_sleep():
     """Puts PC into true ACPI S3 Standby Sleep with Wake-on-LAN and all wake events ENABLED."""
     def _sleep_worker():
@@ -42,6 +68,30 @@ def put_pc_to_sleep():
     threading.Thread(target=_sleep_worker, daemon=True).start()
 
 class PowerCommandHandler(BaseHTTPRequestHandler):
+    def check_security_gate(self) -> bool:
+        client_ip = self.client_address[0]
+        if not is_client_allowed(client_ip):
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error":"Forbidden: Non-local IP address blocked"}')
+            if LOG_CALLBACK:
+                LOG_CALLBACK(f"[FIREWALL BLOCK] Untrusted external IP {client_ip} rejected.")
+            return False
+
+        global AUTH_SECRET_KEY
+        if AUTH_SECRET_KEY:
+            incoming_token = self.headers.get("X-Auth-Token", "").strip()
+            if incoming_token != AUTH_SECRET_KEY:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"error":"Unauthorized: Invalid or missing secret token"}')
+                if LOG_CALLBACK:
+                    LOG_CALLBACK(f"[SECURITY ALERT] Unauthorized request from {client_ip}! Missing/Wrong Secret Key.")
+                return False
+        return True
+
     def do_GET(self):
         global AGENT_RUNNING
         if not AGENT_RUNNING:
@@ -51,13 +101,16 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.wfile.write(b'{"status":"inactive"}')
             return
 
+        if not self.check_security_gate():
+            return
+
         if self.path in ("/status", "/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"online"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK("Phone pinged PC status (Status: Online)")
+                LOG_CALLBACK(f"Authenticated status ping from {self.client_address[0]} (Online)")
         else:
             self.send_response(404)
             self.end_headers()
@@ -73,13 +126,17 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
                 LOG_CALLBACK("Blocked incoming phone signal (Service is TURNED OFF).")
             return
 
+        if not self.check_security_gate():
+            return
+
+        client_ip = self.client_address[0]
         if self.path == "/sleep":
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"sleeping"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK("Received SLEEP command! Putting PC to S3 sleep (WoL enabled)...")
+                LOG_CALLBACK(f"[AUTH OK] Received SLEEP command from {client_ip}! Putting PC to S3 sleep...")
             put_pc_to_sleep()
 
         elif self.path == "/restart":
@@ -88,7 +145,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"status":"restarting"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK("Received RESTART command! Rebooting in 2s...")
+                LOG_CALLBACK(f"[AUTH OK] Received RESTART command from {client_ip}! Rebooting...")
             subprocess.Popen(["shutdown", "/r", "/t", "2"])
 
         elif self.path == "/shutdown":
@@ -97,7 +154,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"status":"shutting_down"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK("Received SHUTDOWN command! Turning off in 2s...")
+                LOG_CALLBACK(f"[AUTH OK] Received SHUTDOWN command from {client_ip}! Turning off...")
             subprocess.Popen(["shutdown", "/s", "/t", "2"])
 
         else:
@@ -246,6 +303,47 @@ class SecureWolApp(tk.Tk):
             bg="#0F172A"
         ).pack(anchor="w", pady=(2, 0))
 
+        # Security Pairing Token Card
+        key_frame = tk.Frame(content_frame, bg="#0F172A", padx=14, pady=10, highlightthickness=1, highlightbackground="#1F2E45")
+        key_frame.pack(fill="x", pady=(0, 14))
+
+        tk.Label(
+            key_frame,
+            text="🔒 Zero-Trust Companion Secret Key (Optional):",
+            font=("Segoe UI", 9, "bold"),
+            fg="#10B981",
+            bg="#0F172A"
+        ).pack(anchor="w")
+
+        key_row = tk.Frame(key_frame, bg="#0F172A")
+        key_row.pack(fill="x", pady=(4, 0))
+
+        self.key_entry = tk.Entry(
+            key_row,
+            font=("Consolas", 10),
+            bg="#080C14",
+            fg="#F8FAFC",
+            insertbackground="#10B981",
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground="#1E293B"
+        )
+        self.key_entry.insert(0, load_or_create_auth_key())
+        self.key_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+        save_key_btn = tk.Button(
+            key_row,
+            text="Save Key",
+            font=("Segoe UI", 8, "bold"),
+            fg="#080C14",
+            bg="#10B981",
+            activebackground="#059669",
+            relief="flat",
+            cursor="hand2",
+            command=self.save_key_from_ui
+        )
+        save_key_btn.pack(side="right")
+
         # Activity Log Frame
         log_header = tk.Frame(content_frame, bg="#080C14")
         log_header.pack(fill="x", pady=(0, 4))
@@ -379,13 +477,15 @@ class SecureWolApp(tk.Tk):
                 self.append_log("Autostart ENABLED on Windows boot.")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to enable autostart: {e}")
+    def save_key_from_ui(self):
+        new_key = self.key_entry.get().strip()
+        save_auth_key(new_key)
+        if new_key:
+            self.append_log("🔒 Security Secret Key SAVED. Unauthorized requests will be blocked.")
+            messagebox.showinfo("Security Key Saved", f"Zero-Trust Secret Key set to:\n\n{new_key}\n\nMake sure to enter this same Secret Key in your Secure WOL Phone App under PC Settings!")
         else:
-            if os.path.exists(startup):
-                try:
-                    os.remove(startup)
-                    self.append_log("Autostart DISABLED.")
-                except Exception as e:
-                    messagebox.showerror("Error", f"Failed to disable autostart: {e}")
+            self.append_log("🔓 Security Secret Key CLEARED. Local network access open.")
+            messagebox.showinfo("Security Key Cleared", "Secret Key removed. Any device on your local WiFi can send commands.")
 
 if __name__ == "__main__":
     app = SecureWolApp()

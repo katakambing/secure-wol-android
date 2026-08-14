@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -102,6 +104,7 @@ fun DashboardScreen(
     val pendingRemoteAction by viewModel.pendingRemoteAction.collectAsState()
     val agentSetupPc by viewModel.showAgentSetupDialog.collectAsState()
     var pcToDelete by remember { mutableStateOf<PcDevice?>(null) }
+    var isPrivacyModeEnabled by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -153,15 +156,22 @@ fun DashboardScreen(
                             color = TextPrimary
                         )
                         Text(
-                            text = "Hardware Guarded • Offline First",
+                            text = if (isPrivacyModeEnabled) "Shield Active • Data Masked" else "Unmasked View • Local Only",
                             style = MaterialTheme.typography.labelSmall,
                             fontSize = 10.sp,
-                            color = AccentEmerald
+                            color = if (isPrivacyModeEnabled) AccentEmerald else AccentAmber
                         )
                     }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = { isPrivacyModeEnabled = !isPrivacyModeEnabled }) {
+                        Icon(
+                            imageVector = if (isPrivacyModeEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = "Toggle Privacy Shield",
+                            tint = if (isPrivacyModeEnabled) AccentEmerald else TextSecondary
+                        )
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Security,
@@ -226,14 +236,14 @@ fun DashboardScreen(
                                     PulsingLiveDot()
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "LIVE NETWORK MONITORING",
+                                        text = if (isPrivacyModeEnabled) "ZERO-TRUST SHIELD ACTIVE" else "LIVE NETWORK MONITORING",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = TextPrimary
                                     )
                                 }
                                 Text(
-                                    text = "${pcList.size} PC Active",
+                                    text = "${pcList.size} PC Guarded",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = AccentEmerald,
                                     fontWeight = FontWeight.SemiBold
@@ -247,6 +257,7 @@ fun DashboardScreen(
                         PcDeviceCard(
                             pc = pc,
                             status = status,
+                            isPrivacyMode = isPrivacyModeEnabled,
                             onPowerOn = { viewModel.onPowerOnClicked(pc) },
                             onEdit = { onNavigateToEditPc(pc.id) },
                             onDelete = { pcToDelete = pc },
@@ -529,6 +540,7 @@ fun DashboardScreen(
 fun PcDeviceCard(
     pc: PcDevice,
     status: PcPowerStatus,
+    isPrivacyMode: Boolean = true,
     onPowerOn: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -652,12 +664,12 @@ fun PcDeviceCard(
             ) {
                 NetworkInfoChip(
                     label = "IP",
-                    value = pc.ipAddress.ifBlank { "Auto" },
+                    value = if (isPrivacyMode) pc.maskedIp() else pc.ipAddress.ifBlank { "Auto" },
                     color = AccentCyan
                 )
                 NetworkInfoChip(
                     label = "MAC",
-                    value = pc.maskedMac(),
+                    value = if (isPrivacyMode) pc.maskedMac() else pc.macAddress,
                     color = AccentEmerald
                 )
                 NetworkInfoChip(

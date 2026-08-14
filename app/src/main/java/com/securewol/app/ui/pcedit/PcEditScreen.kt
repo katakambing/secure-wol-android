@@ -65,6 +65,7 @@ fun PcEditScreen(
     val broadcast by viewModel.broadcastAddress.collectAsState()
     val port by viewModel.port.collectAsState()
     val secureOn by viewModel.secureOnPassword.collectAsState()
+    val agentAuthToken by viewModel.agentAuthToken.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -222,6 +223,16 @@ fun PcEditScreen(
                 label = { Text("SecureOn Password (Optional 6-byte hex)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                colors = textFieldColors
+            )
+
+            OutlinedTextField(
+                value = agentAuthToken,
+                onValueChange = { viewModel.onAgentAuthTokenChanged(it) },
+                label = { Text("PC Companion Secret Key (Optional / Pre-shared)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 colors = textFieldColors
             )
 

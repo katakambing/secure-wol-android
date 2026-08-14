@@ -113,7 +113,8 @@ class DashboardViewModel(
         viewModelScope.launch {
             val result = RemotePowerManager.executePowerAction(
                 targetIp = targetPc.ipAddress,
-                action = action
+                action = action,
+                authSecret = targetPc.agentAuthToken
             )
             when (result) {
                 is RemoteCommandResult.Success -> {

@@ -43,6 +43,9 @@ class PcEditViewModel(
     private val _secureOnPassword = MutableStateFlow("")
     val secureOnPassword: StateFlow<String> = _secureOnPassword.asStateFlow()
 
+    private val _agentAuthToken = MutableStateFlow("")
+    val agentAuthToken: StateFlow<String> = _agentAuthToken.asStateFlow()
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
@@ -66,6 +69,7 @@ class PcEditViewModel(
             _broadcastAddress.value = pc.broadcastAddress
             _port.value = pc.port.toString()
             _secureOnPassword.value = pc.secureOnPassword ?: ""
+            _agentAuthToken.value = pc.agentAuthToken ?: ""
         }
     }
 
@@ -75,6 +79,7 @@ class PcEditViewModel(
     fun onBroadcastChanged(v: String) { _broadcastAddress.value = v; _errorMessage.value = null }
     fun onPortChanged(v: String) { _port.value = v; _errorMessage.value = null }
     fun onSecureOnChanged(v: String) { _secureOnPassword.value = v; _errorMessage.value = null }
+    fun onAgentAuthTokenChanged(v: String) { _agentAuthToken.value = v; _errorMessage.value = null }
 
     fun save() {
         if (!SessionManager.isSessionValid()) {
@@ -108,7 +113,8 @@ class PcEditViewModel(
             ipAddress = _ipAddress.value.trim(),
             broadcastAddress = _broadcastAddress.value.trim().ifBlank { "255.255.255.255" },
             port = rawPort,
-            secureOnPassword = _secureOnPassword.value.trim().ifBlank { null }
+            secureOnPassword = _secureOnPassword.value.trim().ifBlank { null },
+            agentAuthToken = _agentAuthToken.value.trim().ifBlank { null }
         )
 
         try {

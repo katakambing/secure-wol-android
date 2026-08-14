@@ -91,5 +91,6 @@ SecureWolApp/
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE) - Copyright (c) 2026 Wan Muhammad Nur Iman.
+This project is licensed under the [MIT License](LICENSE) - Copyright (c) 2026 katakambing.
+
 

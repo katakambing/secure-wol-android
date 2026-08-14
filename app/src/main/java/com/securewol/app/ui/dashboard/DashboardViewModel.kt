@@ -3,6 +3,11 @@ package com.securewol.app.ui.dashboard
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.securewol.app.core.network.PcPowerStatus
+import com.securewol.app.core.network.PcStatusChecker
+import com.securewol.app.core.network.RemoteCommandResult
+import com.securewol.app.core.network.RemotePowerAction
+import com.securewol.app.core.network.RemotePowerManager
 import com.securewol.app.core.network.WolDispatcher
 import com.securewol.app.core.security.BiometricAuthManager
 import com.securewol.app.core.security.SecureLogger

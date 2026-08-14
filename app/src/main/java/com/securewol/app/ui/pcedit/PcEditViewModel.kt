@@ -43,6 +43,9 @@ class PcEditViewModel(
     private val _secureOnPassword = MutableStateFlow("")
     val secureOnPassword: StateFlow<String> = _secureOnPassword.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     private val _events = MutableSharedFlow<PcEditUiEvent>()
     val events: SharedFlow<PcEditUiEvent> = _events.asSharedFlow()
 
@@ -66,15 +69,16 @@ class PcEditViewModel(
         }
     }
 
-    fun onNameChanged(v: String) { _name.value = v }
-    fun onMacChanged(v: String) { _macAddress.value = v }
-    fun onIpChanged(v: String) { _ipAddress.value = v }
-    fun onBroadcastChanged(v: String) { _broadcastAddress.value = v }
-    fun onPortChanged(v: String) { _port.value = v }
-    fun onSecureOnChanged(v: String) { _secureOnPassword.value = v }
+    fun onNameChanged(v: String) { _name.value = v; _errorMessage.value = null }
+    fun onMacChanged(v: String) { _macAddress.value = v; _errorMessage.value = null }
+    fun onIpChanged(v: String) { _ipAddress.value = v; _errorMessage.value = null }
+    fun onBroadcastChanged(v: String) { _broadcastAddress.value = v; _errorMessage.value = null }
+    fun onPortChanged(v: String) { _port.value = v; _errorMessage.value = null }
+    fun onSecureOnChanged(v: String) { _secureOnPassword.value = v; _errorMessage.value = null }
 
     fun save() {
         if (!SessionManager.isSessionValid()) {
+            _errorMessage.value = "Session expired. Please re-authenticate."
             viewModelScope.launch {
                 _events.emit(PcEditUiEvent.Error("Session expired. Please authenticate."))
             }
@@ -86,11 +90,13 @@ class PcEditViewModel(
         val rawPort = _port.value.trim().toIntOrNull() ?: 9
 
         if (pcName.isBlank()) {
+            _errorMessage.value = "PC Name cannot be empty."
             viewModelScope.launch { _events.emit(PcEditUiEvent.Error("PC Name cannot be blank.")) }
             return
         }
 
         if (!WolPacketBuilder.isValidMac(rawMac)) {
+            _errorMessage.value = "Invalid MAC address format (e.g. 34:5A:60:CF:A4:87)."
             viewModelScope.launch { _events.emit(PcEditUiEvent.Error("Invalid MAC address. Must be 12 hex characters (e.g. 00:11:22:33:44:55).")) }
             return
         }
@@ -107,8 +113,10 @@ class PcEditViewModel(
 
         try {
             pcRepository.savePcDevice(device)
+            _errorMessage.value = null
             viewModelScope.launch { _events.emit(PcEditUiEvent.Saved) }
         } catch (e: Exception) {
+            _errorMessage.value = "Failed to save: ${e.localizedMessage ?: "Unknown error"}"
             viewModelScope.launch { _events.emit(PcEditUiEvent.Error("Failed to save PC configuration.")) }
         }
     }

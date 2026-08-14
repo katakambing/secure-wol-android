@@ -65,6 +65,7 @@ fun PcEditScreen(
     val broadcast by viewModel.broadcastAddress.collectAsState()
     val port by viewModel.port.collectAsState()
     val secureOn by viewModel.secureOnPassword.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -224,7 +225,25 @@ fun PcEditScreen(
                 colors = textFieldColors
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            if (errorMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(AccentCrimson.copy(alpha = 0.15f))
+                        .border(1.dp, AccentCrimson, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        color = AccentCrimson,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = { viewModel.save() },

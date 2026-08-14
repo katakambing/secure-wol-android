@@ -19,7 +19,6 @@ object KeystoreManager {
     fun getMasterKey(context: Context): MasterKey {
         return MasterKey.Builder(context, MasterKey.DEFAULT_MASTER_KEY_ALIAS)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .setRequestStrongBoxed(false) // Fallback to standard TEE if StrongBox not present
             .build()
     }
 

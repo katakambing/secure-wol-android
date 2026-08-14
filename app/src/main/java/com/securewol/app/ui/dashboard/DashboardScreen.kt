@@ -263,6 +263,8 @@ fun DashboardScreen(
                         }
                     }
                 )
+            }
+
             // Delete Confirmation Modal
             if (pcToDelete != null) {
                 val target = pcToDelete!!

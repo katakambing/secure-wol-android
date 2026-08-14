@@ -81,6 +81,8 @@ fun DashboardScreen(
     val pcList by viewModel.pcList.collectAsState()
     val pendingPc by viewModel.pendingPowerOnPc.collectAsState()
     val isSendingWol by viewModel.isSendingWol.collectAsState()
+    val pcStatusMap by viewModel.pcStatusMap.collectAsState()
+    val pendingRemoteAction by viewModel.pendingRemoteAction.collectAsState()
     var pcToDelete by remember { mutableStateOf<PcDevice?>(null) }
 
     LaunchedEffect(Unit) {
@@ -165,20 +167,33 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     item {
-                        Text(
-                            text = "Configured PCs (${pcList.size})",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Configured PCs (${pcList.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                            Text(
+                                text = "Live Monitoring Active",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AccentEmerald
+                            )
+                        }
                     }
 
                     items(pcList, key = { it.id }) { pc ->
+                        val status = pcStatusMap[pc.id] ?: com.securewol.app.core.network.PcPowerStatus.CHECKING
                         PcDeviceCard(
                             pc = pc,
+                            status = status,
                             onPowerOn = { viewModel.onPowerOnClicked(pc) },
                             onEdit = { onNavigateToEditPc(pc.id) },
-                            onDelete = { pcToDelete = pc }
+                            onDelete = { pcToDelete = pc },
+                            onRemoteAction = { action -> viewModel.onRemoteActionClicked(pc, action) }
                         )
                     }
                 }
@@ -269,6 +284,50 @@ fun DashboardScreen(
                 )
             }
 
+            // Remote Action Confirmation Modal (Sleep / Restart / Shutdown)
+            if (pendingRemoteAction != null) {
+                val pair = pendingRemoteAction!!
+                val targetPc = pair.first
+                val action = pair.second
+                AlertDialog(
+                    onDismissRequest = { viewModel.dismissRemoteAction() },
+                    containerColor = SurfaceDark,
+                    title = {
+                        Text(
+                            text = "${action.displayName} PC?",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextPrimary
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "Are you sure you want to send a remote ${action.displayName} command to \"${targetPc.name}\" (${targetPc.ipAddress})?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = { viewModel.confirmRemoteAction() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (action == com.securewol.app.core.network.RemotePowerAction.SHUTDOWN) AccentCrimson else AccentAmber,
+                                contentColor = TextPrimary
+                            )
+                        ) {
+                            Text(action.displayName, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(
+                            onClick = { viewModel.dismissRemoteAction() },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
+            }
+
             // Delete Confirmation Modal
             if (pcToDelete != null) {
                 val target = pcToDelete!!
@@ -328,16 +387,24 @@ fun DashboardScreen(
 @Composable
 fun PcDeviceCard(
     pc: PcDevice,
+    status: com.securewol.app.core.network.PcPowerStatus,
     onPowerOn: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onRemoteAction: (com.securewol.app.core.network.RemotePowerAction) -> Unit
 ) {
+    val isOnline = status == com.securewol.app.core.network.PcPowerStatus.ONLINE
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(SurfaceCard)
-            .border(1.dp, SurfaceCardBorder, RoundedCornerShape(12.dp))
+            .border(
+                1.dp,
+                if (isOnline) AccentEmerald.copy(alpha = 0.5f) else SurfaceCardBorder,
+                RoundedCornerShape(12.dp)
+            )
             .padding(16.dp)
     ) {
         Column {
@@ -354,27 +421,49 @@ fun PcDeviceCard(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(SurfaceDark)
-                            .border(1.dp, SurfaceCardBorder, CircleShape),
+                            .background(if (isOnline) AccentEmerald.copy(alpha = 0.15f) else SurfaceDark)
+                            .border(
+                                1.dp,
+                                if (isOnline) AccentEmerald else SurfaceCardBorder,
+                                CircleShape
+                            ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Computer,
                             contentDescription = "PC",
-                            tint = AccentEmerald,
+                            tint = if (isOnline) AccentEmerald else TextMuted,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = pc.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            // Status Dot Badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isOnline) AccentEmerald.copy(alpha = 0.2f) else SurfaceDark)
+                                    .border(1.dp, if (isOnline) AccentEmerald else SurfaceCardBorder, RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = if (isOnline) "🟢 ONLINE" else "⚪ ASLEEP",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isOnline) AccentEmerald else TextMuted,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
                         Text(
-                            text = pc.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = pc.maskedMac(),
+                            text = "MAC: ${pc.maskedMac()}  •  IP: ${pc.ipAddress.ifBlank { "Unset" }}",
                             style = MaterialTheme.typography.labelSmall,
                             fontFamily = FontFamily.Monospace,
                             color = TextSecondary
@@ -404,16 +493,36 @@ fun PcDeviceCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
+            // Action Buttons Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Broadcast: ${pc.broadcastAddress}:${pc.port}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted
-                )
+                // Secondary Power Options (Sleep, Restart, Off)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { onRemoteAction(com.securewol.app.core.network.RemotePowerAction.SLEEP) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text("🌙 Sleep", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                    }
+                    OutlinedButton(
+                        onClick = { onRemoteAction(com.securewol.app.core.network.RemotePowerAction.RESTART) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text("🔄 Restart", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                    }
+                    OutlinedButton(
+                        onClick = { onRemoteAction(com.securewol.app.core.network.RemotePowerAction.SHUTDOWN) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text("🛑 Off", style = MaterialTheme.typography.bodySmall, color = AccentCrimson)
+                    }
+                }
 
                 Button(
                     onClick = onPowerOn,
@@ -422,14 +531,14 @@ fun PcDeviceCard(
                         contentColor = BgDark
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.PowerSettingsNew,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "POWER ON",
                         style = MaterialTheme.typography.labelLarge,

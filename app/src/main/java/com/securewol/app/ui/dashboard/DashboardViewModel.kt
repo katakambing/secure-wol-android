@@ -30,14 +30,43 @@ class DashboardViewModel(
 
     val pcList: StateFlow<List<PcDevice>> = pcRepository.pcListFlow
 
+    private val _pcStatusMap = MutableStateFlow<Map<String, PcPowerStatus>>(emptyMap())
+    val pcStatusMap: StateFlow<Map<String, PcPowerStatus>> = _pcStatusMap.asStateFlow()
+
     private val _pendingPowerOnPc = MutableStateFlow<PcDevice?>(null)
     val pendingPowerOnPc: StateFlow<PcDevice?> = _pendingPowerOnPc.asStateFlow()
+
+    private val _pendingRemoteAction = MutableStateFlow<Pair<PcDevice, RemotePowerAction>?>(null)
+    val pendingRemoteAction: StateFlow<Pair<PcDevice, RemotePowerAction>?> = _pendingRemoteAction.asStateFlow()
 
     private val _isSendingWol = MutableStateFlow(false)
     val isSendingWol: StateFlow<Boolean> = _isSendingWol.asStateFlow()
 
     private val _events = MutableSharedFlow<DashboardEvent>()
     val events: SharedFlow<DashboardEvent> = _events.asSharedFlow()
+
+    init {
+        startStatusPolling()
+    }
+
+    fun startStatusPolling() {
+        viewModelScope.launch {
+            while (true) {
+                val currentPcs = pcList.value
+                val updatedMap = _pcStatusMap.value.toMutableMap()
+                for (pc in currentPcs) {
+                    if (pc.ipAddress.isNotBlank()) {
+                        val status = PcStatusChecker.checkStatus(pc.ipAddress)
+                        updatedMap[pc.id] = status
+                    } else {
+                        updatedMap[pc.id] = PcPowerStatus.OFFLINE
+                    }
+                }
+                _pcStatusMap.value = updatedMap
+                kotlinx.coroutines.delay(4000) // Poll every 4 seconds
+            }
+        }
+    }
 
     fun onPowerOnClicked(pc: PcDevice) {
         if (!SessionManager.isSessionValid()) {
@@ -47,6 +76,48 @@ class DashboardViewModel(
             return
         }
         _pendingPowerOnPc.value = pc
+    }
+
+    fun onRemoteActionClicked(pc: PcDevice, action: RemotePowerAction) {
+        if (!SessionManager.isSessionValid()) {
+            viewModelScope.launch {
+                _events.emit(DashboardEvent.SessionExpired)
+            }
+            return
+        }
+        _pendingRemoteAction.value = Pair(pc, action)
+    }
+
+    fun dismissRemoteAction() {
+        _pendingRemoteAction.value = null
+    }
+
+    fun confirmRemoteAction() {
+        val pair = _pendingRemoteAction.value ?: return
+        val targetPc = pair.first
+        val action = pair.second
+        _pendingRemoteAction.value = null
+
+        viewModelScope.launch {
+            val result = RemotePowerManager.executePowerAction(
+                targetIp = targetPc.ipAddress,
+                action = action
+            )
+            when (result) {
+                is RemoteCommandResult.Success -> {
+                    _events.emit(DashboardEvent.ShowToast("${action.displayName} command sent to ${targetPc.name}"))
+                    // Refresh status after 2 seconds
+                    kotlinx.coroutines.delay(2000)
+                    val status = PcStatusChecker.checkStatus(targetPc.ipAddress)
+                    val map = _pcStatusMap.value.toMutableMap()
+                    map[targetPc.id] = status
+                    _pcStatusMap.value = map
+                }
+                is RemoteCommandResult.Failure -> {
+                    _events.emit(DashboardEvent.ShowToast(result.message))
+                }
+            }
+        }
     }
 
     fun dismissPowerOnConfirmation() {

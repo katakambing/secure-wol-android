@@ -2,6 +2,7 @@ package com.securewol.app.ui.dashboard
 
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -64,11 +65,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
+import com.securewol.app.R
 import com.securewol.app.core.network.PcPowerStatus
 import com.securewol.app.core.network.RemotePowerAction
 import com.securewol.app.data.model.PcDevice
@@ -133,23 +136,16 @@ fun DashboardScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Left Brand
+                    // Left Brand with Real Logo
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
+                        Image(
+                            painter = painterResource(id = R.drawable.app_logo),
+                            contentDescription = "Secure WOL Logo",
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(AccentEmerald.copy(alpha = 0.15f))
-                                .border(1.dp, AccentEmerald.copy(alpha = 0.35f), RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = "Shield",
-                                tint = AccentEmerald,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                                .border(1.dp, AccentEmerald.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                        )
 
                         Spacer(modifier = Modifier.width(12.dp))
 

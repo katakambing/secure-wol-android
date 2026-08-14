@@ -82,28 +82,14 @@ fun SetupScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            Box(
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = com.securewol.app.R.drawable.app_logo),
+                contentDescription = "Secure WOL Logo",
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(76.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        Brush.radialGradient(
-                            listOf(
-                                AccentEmerald.copy(alpha = 0.25f),
-                                AccentEmerald.copy(alpha = 0.05f)
-                            )
-                        )
-                    )
-                    .border(1.dp, AccentEmerald.copy(alpha = 0.4f), RoundedCornerShape(22.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Shield,
-                    contentDescription = "Security Shield",
-                    tint = AccentEmerald,
-                    modifier = Modifier.size(36.dp)
-                )
-            }
+                    .border(1.dp, AccentEmerald.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
+            )
 
             Spacer(modifier = Modifier.height(18.dp))
 

@@ -97,29 +97,38 @@ fun AuthScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(
-                        if (isLockedOut) Brush.radialGradient(
-                            listOf(AccentCrimson.copy(alpha = 0.25f), AccentCrimson.copy(alpha = 0.05f))
-                        ) else Brush.radialGradient(
-                            listOf(AccentEmerald.copy(alpha = 0.25f), AccentEmerald.copy(alpha = 0.05f))
+            if (isLockedOut) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            Brush.radialGradient(
+                                listOf(AccentCrimson.copy(alpha = 0.25f), AccentCrimson.copy(alpha = 0.05f))
+                            )
                         )
+                        .border(
+                            1.dp,
+                            AccentCrimson.copy(alpha = 0.5f),
+                            RoundedCornerShape(22.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = "Lock Status",
+                        tint = AccentCrimson,
+                        modifier = Modifier.size(34.dp)
                     )
-                    .border(
-                        1.dp,
-                        if (isLockedOut) AccentCrimson.copy(alpha = 0.5f) else AccentEmerald.copy(alpha = 0.4f),
-                        RoundedCornerShape(22.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isLockedOut) Icons.Default.Warning else Icons.Default.Lock,
-                    contentDescription = "Lock Status",
-                    tint = if (isLockedOut) AccentCrimson else AccentEmerald,
-                    modifier = Modifier.size(34.dp)
+                }
+            } else {
+                androidx.compose.foundation.Image(
+                    painter = androidx.compose.ui.res.painterResource(id = com.securewol.app.R.drawable.app_logo),
+                    contentDescription = "Secure WOL Logo",
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .border(1.dp, AccentEmerald.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
                 )
             }
 

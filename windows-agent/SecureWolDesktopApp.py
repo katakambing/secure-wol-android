@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Secure WOL - Windows Desktop Control Center
-A sleek desktop application to toggle the local receiver ON/OFF,
-monitor incoming phone signals, and configure autostart.
+Secure WOL — Windows Desktop Control Center
+Production Grade Companion Receiver for S3 Sleep, Restart, Shutdown & Zero-Trust Control.
 """
 
 import os
@@ -14,12 +13,20 @@ import subprocess
 import tkinter as tk
 from tkinter import messagebox, font
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import ctypes
+from PIL import Image, ImageTk
 
 PORT = 9090
 AGENT_RUNNING = False
 HTTP_SERVER = None
 SERVER_THREAD = None
 LOG_CALLBACK = None
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(BASE_DIR, "agent_auth.key")
+LOGO_PNG = os.path.join(BASE_DIR, "app_logo.png")
+LOGO_ICO = os.path.join(BASE_DIR, "app_logo.ico")
+AUTH_SECRET_KEY = ""
 
 def get_local_ip():
     try:
@@ -30,11 +37,6 @@ def get_local_ip():
         return ip
     except Exception:
         return "127.0.0.1"
-
-import ctypes
-
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent_auth.key")
-AUTH_SECRET_KEY = ""
 
 def load_or_create_auth_key():
     global AUTH_SECRET_KEY
@@ -57,7 +59,10 @@ def save_auth_key(key: str):
 
 def is_client_allowed(client_ip: str) -> bool:
     """Zero-trust private subnet firewall check."""
-    return client_ip.startswith("192.168.") or client_ip.startswith("10.") or client_ip.startswith("172.") or client_ip in ("127.0.0.1", "localhost", "::1")
+    return (client_ip.startswith("192.168.") or 
+            client_ip.startswith("10.") or 
+            client_ip.startswith("172.") or 
+            client_ip in ("127.0.0.1", "localhost", "::1"))
 
 def put_pc_to_sleep():
     """Puts PC into true ACPI S3 Standby Sleep with Wake-on-LAN and all wake events ENABLED."""
@@ -88,7 +93,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(b'{"error":"Unauthorized: Invalid or missing secret token"}')
                 if LOG_CALLBACK:
-                    LOG_CALLBACK(f"[SECURITY ALERT] Unauthorized request from {client_ip}! Missing/Wrong Secret Key.")
+                    LOG_CALLBACK(f"[SECURITY ALERT] Blocked unauthorized request from {client_ip}! Missing/Invalid Secret Key.")
                 return False
         return True
 
@@ -110,7 +115,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"status":"online"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK(f"Authenticated status ping from {self.client_address[0]} (Online)")
+                LOG_CALLBACK(f"Authenticated status ping from {self.client_address[0]} (ONLINE)")
         else:
             self.send_response(404)
             self.end_headers()
@@ -136,7 +141,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"status":"sleeping"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK(f"[AUTH OK] Received SLEEP command from {client_ip}! Putting PC to S3 sleep...")
+                LOG_CALLBACK(f"[AUTH OK] Received SLEEP command from {client_ip}! Putting PC to S3 Standby...")
             put_pc_to_sleep()
 
         elif self.path == "/restart":
@@ -145,7 +150,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"status":"restarting"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK(f"[AUTH OK] Received RESTART command from {client_ip}! Rebooting...")
+                LOG_CALLBACK(f"[AUTH OK] Received RESTART command from {client_ip}! Rebooting PC...")
             subprocess.Popen(["shutdown", "/r", "/t", "2"])
 
         elif self.path == "/shutdown":
@@ -154,7 +159,7 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"status":"shutting_down"}')
             if LOG_CALLBACK:
-                LOG_CALLBACK(f"[AUTH OK] Received SHUTDOWN command from {client_ip}! Turning off...")
+                LOG_CALLBACK(f"[AUTH OK] Received SHUTDOWN command from {client_ip}! Turning off PC...")
             subprocess.Popen(["shutdown", "/s", "/t", "2"])
 
         else:
@@ -191,50 +196,95 @@ class SecureWolApp(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Secure WOL — PC Control Center")
-        self.geometry("540x620")
+        self.title("Secure WOL — Control Center")
+        self.geometry("560x650")
         self.resizable(False, False)
-        self.configure(bg="#080C14")
+        self.configure(bg="#070B12")
+
+        if os.path.exists(LOGO_ICO):
+            try:
+                self.iconbitmap(LOGO_ICO)
+            except Exception:
+                pass
 
         global LOG_CALLBACK
         LOG_CALLBACK = self.append_log
 
         self.local_ip = get_local_ip()
         self.is_active = False
+        load_or_create_auth_key()
 
         self.build_ui()
         self.start_service()  # Auto-start on launch
 
     def build_ui(self):
-        # 1. Header Frame
-        header_frame = tk.Frame(self, bg="#0F172A", height=70, padx=20, pady=12)
+        # 1. Header Frame with Real High-Res Logo
+        header_frame = tk.Frame(self, bg="#0D1420", height=80, padx=18, pady=12)
         header_frame.pack(fill="x")
 
+        logo_row = tk.Frame(header_frame, bg="#0D1420")
+        logo_row.pack(fill="x")
+
+        # Display Custom Logo Image
+        if os.path.exists(LOGO_PNG):
+            try:
+                pil_img = Image.open(LOGO_PNG)
+                pil_img = pil_img.resize((50, 50), Image.Resampling.LANCZOS)
+                self.logo_photo = ImageTk.PhotoImage(pil_img)
+                logo_label = tk.Label(logo_row, image=self.logo_photo, bg="#0D1420")
+                logo_label.pack(side="left", padx=(0, 14))
+            except Exception:
+                pass
+
+        text_col = tk.Frame(logo_row, bg="#0D1420")
+        text_col.pack(side="left", fill="y")
+
+        title_badge_row = tk.Frame(text_col, bg="#0D1420")
+        title_badge_row.pack(anchor="w")
+
         title_label = tk.Label(
-            header_frame,
-            text="🛡️ Secure WOL Control Center",
-            font=("Segoe UI", 15, "bold"),
+            title_badge_row,
+            text="Secure WOL Control Center",
+            font=("Segoe UI", 14, "bold"),
             fg="#F8FAFC",
-            bg="#0F172A"
+            bg="#0D1420"
         )
-        title_label.pack(anchor="w")
+        title_label.pack(side="left")
+
+        pro_badge = tk.Label(
+            title_badge_row,
+            text="PRO",
+            font=("Segoe UI", 8, "bold"),
+            fg="#10B981",
+            bg="#062D24",
+            padx=5,
+            pady=1
+        )
+        pro_badge.pack(side="left", padx=(8, 0))
 
         subtitle_label = tk.Label(
-            header_frame,
-            text="Private Companion Receiver for Sleep, Restart & Shut Down",
+            text_col,
+            text="Zero-Trust Companion Receiver • S3 Sleep • Restart • Shut Down",
             font=("Segoe UI", 9),
             fg="#94A3B8",
-            bg="#0F172A"
+            bg="#0D1420"
         )
-        subtitle_label.pack(anchor="w")
+        subtitle_label.pack(anchor="w", pady=(2, 0))
 
         # 2. Main Content Frame
-        content_frame = tk.Frame(self, bg="#080C14", padx=20, pady=16)
+        content_frame = tk.Frame(self, bg="#070B12", padx=20, pady=16)
         content_frame.pack(fill="both", expand=True)
 
-        # Status Card
-        self.status_card = tk.Frame(content_frame, bg="#131D2E", padx=16, pady=16, highlightthickness=1, highlightbackground="#1F2E45")
-        self.status_card.pack(fill="x", pady=(0, 14))
+        # Status Card (Obsidian Glassmorphic)
+        self.status_card = tk.Frame(
+            content_frame,
+            bg="#131D2E",
+            padx=16,
+            pady=14,
+            highlightthickness=1,
+            highlightbackground="#1F2E45"
+        )
+        self.status_card.pack(fill="x", pady=(0, 12))
 
         status_header = tk.Frame(self.status_card, bg="#131D2E")
         status_header.pack(fill="x")
@@ -242,7 +292,7 @@ class SecureWolApp(tk.Tk):
         self.status_indicator = tk.Label(
             status_header,
             text="● SERVICE ACTIVE",
-            font=("Segoe UI", 12, "bold"),
+            font=("Segoe UI", 11, "bold"),
             fg="#10B981",
             bg="#131D2E"
         )
@@ -251,7 +301,7 @@ class SecureWolApp(tk.Tk):
         self.port_label = tk.Label(
             status_header,
             text=f"Port: {PORT}",
-            font=("Consolas", 10),
+            font=("Consolas", 10, "bold"),
             fg="#64748B",
             bg="#131D2E"
         )
@@ -259,69 +309,86 @@ class SecureWolApp(tk.Tk):
 
         self.status_desc = tk.Label(
             self.status_card,
-            text=f"Listening on http://{self.local_ip}:{PORT} — 0.0% CPU, ~6MB RAM",
+            text=f"Listening on http://{self.local_ip}:{PORT} (0.0% CPU • 6MB RAM)",
             font=("Segoe UI", 9),
             fg="#94A3B8",
             bg="#131D2E"
         )
-        self.status_desc.pack(anchor="w", pady=(6, 12))
+        self.status_desc.pack(anchor="w", pady=(4, 10))
 
         # Main ON/OFF Toggle Button
         self.toggle_btn = tk.Button(
             self.status_card,
             text="PAUSE SERVICE (TURN OFF)",
-            font=("Segoe UI", 10, "bold"),
-            bg="#1F2937",
+            font=("Segoe UI", 9, "bold"),
+            bg="#1E293B",
             fg="#EF4444",
-            activebackground="#374151",
+            activebackground="#334155",
             activeforeground="#EF4444",
             relief="flat",
             cursor="hand2",
-            padx=16,
-            pady=8,
+            padx=14,
+            pady=7,
             command=self.toggle_service
         )
         self.toggle_btn.pack(fill="x")
 
-        # Network Details Card
-        info_frame = tk.Frame(content_frame, bg="#0F172A", padx=14, pady=10, highlightthickness=1, highlightbackground="#1F2E45")
-        info_frame.pack(fill="x", pady=(0, 14))
+        # Network Info Card
+        info_frame = tk.Frame(
+            content_frame,
+            bg="#0D1420",
+            padx=14,
+            pady=10,
+            highlightthickness=1,
+            highlightbackground="#1E293B"
+        )
+        info_frame.pack(fill="x", pady=(0, 12))
+
+        net_row = tk.Frame(info_frame, bg="#0D1420")
+        net_row.pack(fill="x")
 
         tk.Label(
-            info_frame,
-            text=f"🌐 Local PC IP:  {self.local_ip}",
-            font=("Segoe UI", 10, "bold"),
+            net_row,
+            text=f"🌐 Local PC IP: {self.local_ip}",
+            font=("Consolas", 10, "bold"),
             fg="#38BDF8",
-            bg="#0F172A"
-        ).pack(anchor="w")
+            bg="#0D1420"
+        ).pack(side="left")
 
         tk.Label(
-            info_frame,
-            text="⚡ Wake-on-LAN:  Hardware-enabled (always active even when app is closed)",
-            font=("Segoe UI", 9),
-            fg="#94A3B8",
-            bg="#0F172A"
-        ).pack(anchor="w", pady=(2, 0))
+            net_row,
+            text="⚡ WoL: Hardware Enabled",
+            font=("Segoe UI", 9, "bold"),
+            fg="#10B981",
+            bg="#0D1420"
+        ).pack(side="right")
 
-        # Security Pairing Token Card
-        key_frame = tk.Frame(content_frame, bg="#0F172A", padx=14, pady=10, highlightthickness=1, highlightbackground="#1F2E45")
-        key_frame.pack(fill="x", pady=(0, 14))
+        # Security Secret Token Card
+        key_frame = tk.Frame(
+            content_frame,
+            bg="#0D1420",
+            padx=14,
+            pady=10,
+            highlightthickness=1,
+            highlightbackground="#1E293B"
+        )
+        key_frame.pack(fill="x", pady=(0, 12))
 
         tk.Label(
             key_frame,
-            text="🔒 Zero-Trust Companion Secret Key (Optional):",
+            text="🔒 Zero-Trust Secret Key (Phone Pairing):",
             font=("Segoe UI", 9, "bold"),
             fg="#10B981",
-            bg="#0F172A"
+            bg="#0D1420"
         ).pack(anchor="w")
 
-        key_row = tk.Frame(key_frame, bg="#0F172A")
-        key_row.pack(fill="x", pady=(4, 0))
+        key_row = tk.Frame(key_frame, bg="#0D1420")
+        key_row.pack(fill="x", pady=(5, 0))
 
         self.key_entry = tk.Entry(
             key_row,
             font=("Consolas", 10),
-            bg="#080C14",
+            bg="#070B12",
             fg="#F8FAFC",
             insertbackground="#10B981",
             relief="flat",
@@ -335,33 +402,35 @@ class SecureWolApp(tk.Tk):
             key_row,
             text="Save Key",
             font=("Segoe UI", 8, "bold"),
-            fg="#080C14",
+            fg="#070B12",
             bg="#10B981",
             activebackground="#059669",
             relief="flat",
             cursor="hand2",
+            padx=12,
+            pady=3,
             command=self.save_key_from_ui
         )
         save_key_btn.pack(side="right")
 
         # Activity Log Frame
-        log_header = tk.Frame(content_frame, bg="#080C14")
+        log_header = tk.Frame(content_frame, bg="#070B12")
         log_header.pack(fill="x", pady=(0, 4))
 
         tk.Label(
             log_header,
             text="Activity Live Log",
-            font=("Segoe UI", 10, "bold"),
+            font=("Segoe UI", 9, "bold"),
             fg="#F8FAFC",
-            bg="#080C14"
+            bg="#070B12"
         ).pack(side="left")
 
         clear_btn = tk.Button(
             log_header,
-            text="Clear",
+            text="Clear Log",
             font=("Segoe UI", 8),
             fg="#94A3B8",
-            bg="#080C14",
+            bg="#070B12",
             relief="flat",
             cursor="hand2",
             command=self.clear_log
@@ -370,7 +439,7 @@ class SecureWolApp(tk.Tk):
 
         self.log_text = tk.Text(
             content_frame,
-            height=8,
+            height=6,
             bg="#0D1420",
             fg="#E2E8F0",
             insertbackground="#10B981",
@@ -381,22 +450,22 @@ class SecureWolApp(tk.Tk):
             highlightthickness=1,
             highlightbackground="#1E293B"
         )
-        self.log_text.pack(fill="both", expand=True, pady=(0, 14))
+        self.log_text.pack(fill="both", expand=True, pady=(0, 10))
 
         # Bottom Options
-        bottom_frame = tk.Frame(content_frame, bg="#080C14")
+        bottom_frame = tk.Frame(content_frame, bg="#070B12")
         bottom_frame.pack(fill="x")
 
         self.autostart_var = tk.BooleanVar(value=self.check_autostart_installed())
         self.autostart_cb = tk.Checkbutton(
             bottom_frame,
-            text="Start automatically on Windows boot",
+            text="Start automatically on Windows boot (Silent background)",
             variable=self.autostart_var,
             command=self.toggle_autostart,
             font=("Segoe UI", 9),
             fg="#CBD5E1",
-            bg="#080C14",
-            activebackground="#080C14",
+            bg="#070B12",
+            activebackground="#070B12",
             activeforeground="#10B981",
             selectcolor="#0D1420"
         )
@@ -439,7 +508,7 @@ class SecureWolApp(tk.Tk):
     def update_ui_state(self, active: bool):
         if active:
             self.status_indicator.config(text="● SERVICE ACTIVE", fg="#10B981")
-            self.status_desc.config(text=f"Listening on http://{self.local_ip}:{PORT} — 0.0% CPU, ~6MB RAM", fg="#94A3B8")
+            self.status_desc.config(text=f"Listening on http://{self.local_ip}:{PORT} (0.0% CPU • 6MB RAM)", fg="#94A3B8")
             self.toggle_btn.config(
                 text="PAUSE SERVICE (TURN OFF)",
                 bg="#1E293B",
@@ -460,6 +529,16 @@ class SecureWolApp(tk.Tk):
             )
             self.status_card.config(highlightbackground="#EF4444")
 
+    def save_key_from_ui(self):
+        new_key = self.key_entry.get().strip()
+        save_auth_key(new_key)
+        if new_key:
+            self.append_log("🔒 Security Secret Key SAVED. Unauthorized requests will be blocked.")
+            messagebox.showinfo("Security Key Saved", f"Zero-Trust Secret Key set to:\n\n{new_key}\n\nMake sure to enter this same Secret Key in your Secure WOL Phone App under PC Settings!")
+        else:
+            self.append_log("🔓 Security Secret Key CLEARED. Local network access open.")
+            messagebox.showinfo("Security Key Cleared", "Secret Key removed. Any device on your local WiFi can send commands.")
+
     def check_autostart_installed(self):
         startup = os.path.join(os.getenv("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup\SecureWolAgent.vbs")
         return os.path.exists(startup)
@@ -477,15 +556,13 @@ class SecureWolApp(tk.Tk):
                 self.append_log("Autostart ENABLED on Windows boot.")
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to enable autostart: {e}")
-    def save_key_from_ui(self):
-        new_key = self.key_entry.get().strip()
-        save_auth_key(new_key)
-        if new_key:
-            self.append_log("🔒 Security Secret Key SAVED. Unauthorized requests will be blocked.")
-            messagebox.showinfo("Security Key Saved", f"Zero-Trust Secret Key set to:\n\n{new_key}\n\nMake sure to enter this same Secret Key in your Secure WOL Phone App under PC Settings!")
         else:
-            self.append_log("🔓 Security Secret Key CLEARED. Local network access open.")
-            messagebox.showinfo("Security Key Cleared", "Secret Key removed. Any device on your local WiFi can send commands.")
+            if os.path.exists(startup):
+                try:
+                    os.remove(startup)
+                    self.append_log("Autostart DISABLED.")
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to disable autostart: {e}")
 
 if __name__ == "__main__":
     app = SecureWolApp()

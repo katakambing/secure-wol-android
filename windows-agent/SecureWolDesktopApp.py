@@ -10,6 +10,7 @@ import time
 import socket
 import threading
 import subprocess
+import hmac
 import tkinter as tk
 from tkinter import messagebox, font
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -28,6 +29,10 @@ LOGO_PNG = os.path.join(BASE_DIR, "app_logo.png")
 LOGO_ICO = os.path.join(BASE_DIR, "app_logo.ico")
 AUTH_SECRET_KEY = ""
 
+# Rate Limiting Tracker: { ip: [timestamp_list] }
+FAILED_ATTEMPTS = {}
+BLOCKED_IPS = {}
+
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -42,7 +47,7 @@ def load_or_create_auth_key():
     global AUTH_SECRET_KEY
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 AUTH_SECRET_KEY = f.read().strip()
         except Exception:
             AUTH_SECRET_KEY = ""
@@ -52,7 +57,7 @@ def save_auth_key(key: str):
     global AUTH_SECRET_KEY
     AUTH_SECRET_KEY = key.strip()
     try:
-        with open(CONFIG_FILE, "w") as f:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             f.write(AUTH_SECRET_KEY)
     except Exception:
         pass
@@ -63,6 +68,29 @@ def is_client_allowed(client_ip: str) -> bool:
             client_ip.startswith("10.") or 
             client_ip.startswith("172.") or 
             client_ip in ("127.0.0.1", "localhost", "::1"))
+
+def is_rate_limited(client_ip: str) -> bool:
+    """Checks if IP is blocked due to excessive failed attempts."""
+    now = time.time()
+    if client_ip in BLOCKED_IPS:
+        if now < BLOCKED_IPS[client_ip]:
+            return True
+        else:
+            del BLOCKED_IPS[client_ip]
+
+    if client_ip in FAILED_ATTEMPTS:
+        # Keep attempts in last 60 seconds
+        FAILED_ATTEMPTS[client_ip] = [t for t in FAILED_ATTEMPTS[client_ip] if now - t < 60]
+        if len(FAILED_ATTEMPTS[client_ip]) >= 5:
+            BLOCKED_IPS[client_ip] = now + 120  # Block for 2 minutes
+            return True
+    return False
+
+def record_failed_attempt(client_ip: str):
+    now = time.time()
+    if client_ip not in FAILED_ATTEMPTS:
+        FAILED_ATTEMPTS[client_ip] = []
+    FAILED_ATTEMPTS[client_ip].append(now)
 
 def put_pc_to_sleep():
     """Puts PC into true ACPI S3 Standby Sleep with Wake-on-LAN and all wake events ENABLED."""
@@ -79,21 +107,32 @@ class PowerCommandHandler(BaseHTTPRequestHandler):
             self.send_response(403)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(b'{"error":"Forbidden: Non-local IP address blocked"}')
+            self.wfile.write(b'{"error":"Forbidden: Non-local IP blocked"}')
             if LOG_CALLBACK:
                 LOG_CALLBACK(f"[FIREWALL BLOCK] Untrusted external IP {client_ip} rejected.")
+            return False
+
+        if is_rate_limited(client_ip):
+            self.send_response(429)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"error":"Too Many Requests: Temporarily locked out"}')
+            if LOG_CALLBACK:
+                LOG_CALLBACK(f"[RATE-LIMIT] IP {client_ip} temporarily locked out.")
             return False
 
         global AUTH_SECRET_KEY
         if AUTH_SECRET_KEY:
             incoming_token = self.headers.get("X-Auth-Token", "").strip()
-            if incoming_token != AUTH_SECRET_KEY:
+            # Constant-time comparison to prevent side-channel timing attacks
+            if not hmac.compare_digest(incoming_token, AUTH_SECRET_KEY):
+                record_failed_attempt(client_ip)
                 self.send_response(401)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(b'{"error":"Unauthorized: Invalid or missing secret token"}')
+                self.wfile.write(b'{"error":"Unauthorized: Invalid secret key"}')
                 if LOG_CALLBACK:
-                    LOG_CALLBACK(f"[SECURITY ALERT] Blocked unauthorized request from {client_ip}! Missing/Invalid Secret Key.")
+                    LOG_CALLBACK(f"[SECURITY ALERT] Unauthorized request from {client_ip}! Wrong Secret Key.")
                 return False
         return True
 
@@ -197,7 +236,7 @@ class SecureWolApp(tk.Tk):
         super().__init__()
 
         self.title("Secure WOL — Control Center")
-        self.geometry("560x650")
+        self.geometry("560x670")
         self.resizable(False, False)
         self.configure(bg="#070B12")
 
@@ -253,18 +292,18 @@ class SecureWolApp(tk.Tk):
 
         pro_badge = tk.Label(
             title_badge_row,
-            text="PRO",
+            text="ENTERPRISE SECURE",
             font=("Segoe UI", 8, "bold"),
             fg="#10B981",
             bg="#062D24",
-            padx=5,
+            padx=6,
             pady=1
         )
         pro_badge.pack(side="left", padx=(8, 0))
 
         subtitle_label = tk.Label(
             text_col,
-            text="Zero-Trust Companion Receiver • S3 Sleep • Restart • Shut Down",
+            text="Zero-Trust Protected • HMAC-Auth • Local Subnet Firewall",
             font=("Segoe UI", 9),
             fg="#94A3B8",
             bg="#0D1420"
@@ -309,7 +348,7 @@ class SecureWolApp(tk.Tk):
 
         self.status_desc = tk.Label(
             self.status_card,
-            text=f"Listening on http://{self.local_ip}:{PORT} (0.0% CPU • 6MB RAM)",
+            text=f"Listening on http://{self.local_ip}:{PORT} (0.0% CPU • ~6MB RAM)",
             font=("Segoe UI", 9),
             fg="#94A3B8",
             bg="#131D2E"
@@ -333,7 +372,7 @@ class SecureWolApp(tk.Tk):
         )
         self.toggle_btn.pack(fill="x")
 
-        # Network Info Card
+        # Network Info & WoL Optimizer Card
         info_frame = tk.Frame(
             content_frame,
             bg="#0D1420",
@@ -349,19 +388,26 @@ class SecureWolApp(tk.Tk):
 
         tk.Label(
             net_row,
-            text=f"🌐 Local PC IP: {self.local_ip}",
+            text=f"🌐 Local IP: {self.local_ip}",
             font=("Consolas", 10, "bold"),
             fg="#38BDF8",
             bg="#0D1420"
         ).pack(side="left")
 
-        tk.Label(
+        opt_btn = tk.Button(
             net_row,
-            text="⚡ WoL: Hardware Enabled",
-            font=("Segoe UI", 9, "bold"),
-            fg="#10B981",
-            bg="#0D1420"
-        ).pack(side="right")
+            text="⚡ Fix & Optimize WoL NIC",
+            font=("Segoe UI", 8, "bold"),
+            fg="#080C14",
+            bg="#38BDF8",
+            activebackground="#0284C7",
+            relief="flat",
+            cursor="hand2",
+            padx=10,
+            pady=2,
+            command=self.optimize_nic_settings
+        )
+        opt_btn.pack(side="right")
 
         # Security Secret Token Card
         key_frame = tk.Frame(
@@ -459,7 +505,7 @@ class SecureWolApp(tk.Tk):
         self.autostart_var = tk.BooleanVar(value=self.check_autostart_installed())
         self.autostart_cb = tk.Checkbutton(
             bottom_frame,
-            text="Start automatically on Windows boot (Silent background)",
+            text="Start automatically on Windows boot",
             variable=self.autostart_var,
             command=self.toggle_autostart,
             font=("Segoe UI", 9),
@@ -490,7 +536,7 @@ class SecureWolApp(tk.Tk):
             SERVER_THREAD.start()
             self.is_active = True
             self.update_ui_state(True)
-            self.append_log(f"Service STARTED on port {PORT}. Ready for phone commands.")
+            self.append_log(f"Zero-Trust Service STARTED on port {PORT}. Ready for phone commands.")
 
     def stop_service(self):
         if self.is_active:
@@ -508,7 +554,7 @@ class SecureWolApp(tk.Tk):
     def update_ui_state(self, active: bool):
         if active:
             self.status_indicator.config(text="● SERVICE ACTIVE", fg="#10B981")
-            self.status_desc.config(text=f"Listening on http://{self.local_ip}:{PORT} (0.0% CPU • 6MB RAM)", fg="#94A3B8")
+            self.status_desc.config(text=f"Listening on http://{self.local_ip}:{PORT} (0.0% CPU • ~6MB RAM)", fg="#94A3B8")
             self.toggle_btn.config(
                 text="PAUSE SERVICE (TURN OFF)",
                 bg="#1E293B",
@@ -539,14 +585,21 @@ class SecureWolApp(tk.Tk):
             self.append_log("🔓 Security Secret Key CLEARED. Local network access open.")
             messagebox.showinfo("Security Key Cleared", "Secret Key removed. Any device on your local WiFi can send commands.")
 
+    def optimize_nic_settings(self):
+        opt_script = os.path.join(BASE_DIR, "Optimize-WoL-Settings.bat")
+        if os.path.exists(opt_script):
+            subprocess.Popen(["cmd.exe", "/c", opt_script])
+            self.append_log("Executing Realtek NIC Wake-on-LAN optimization...")
+        else:
+            messagebox.showerror("Error", "Optimize-WoL-Settings.bat not found.")
+
     def check_autostart_installed(self):
         startup = os.path.join(os.getenv("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup\SecureWolAgent.vbs")
         return os.path.exists(startup)
 
     def toggle_autostart(self):
         startup = os.path.join(os.getenv("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup\SecureWolAgent.vbs")
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        app_path = os.path.join(script_dir, "SecureWolDesktopApp.py")
+        app_path = os.path.join(BASE_DIR, "SecureWolDesktopApp.py")
 
         if self.autostart_var.get():
             try:

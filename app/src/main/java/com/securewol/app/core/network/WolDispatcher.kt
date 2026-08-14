@@ -11,7 +11,7 @@ import java.net.InetAddress
 
 /**
  * WolDispatcher: Strictly enforces internal authorization before sending WoL Magic Packets
- * over local UDP broadcast.
+ * using multi-path broadcast (Global, Subnet Broadcast, and Unicast) across UDP ports 9 and 7.
  */
 object WolDispatcher {
 
@@ -22,12 +22,7 @@ object WolDispatcher {
     }
 
     /**
-     * Dispatches a Wake-on-LAN Magic Packet to the target PC.
-     *
-     * Strict Security Pipeline:
-     * 1. Authentication Check: In-memory Session token must be valid and non-expired.
-     * 2. Configuration Validation: Target MAC, broadcast address, and port are checked.
-     * 3. Local Datagram Transmission: Dispatched on local broadcast socket.
+     * Dispatches a Wake-on-LAN Magic Packet to the target PC using multi-target broadcast.
      */
     suspend fun sendWakeOnLan(targetPc: PcDevice): WolResult = withContext(Dispatchers.IO) {
         // Step 1: Authentication & Authorization Gate
@@ -44,31 +39,65 @@ object WolDispatcher {
             return@withContext WolResult.Failure("Invalid MAC address format.")
         }
 
-        val destinationHost = targetPc.broadcastAddress.ifBlank { "255.255.255.255" }
-        val targetPort = if (targetPc.port in 1..65535) targetPc.port else 9
-
         SecureLogger.i("Wake-on-LAN request initiated for PC [${targetPc.name}]")
 
-        // Step 3: Build Packet & Transmit over local UDP broadcast
+        // Step 3: Collect all destination targets for maximum router & AP penetration
+        val destinationAddresses = mutableSetOf<String>()
+        
+        // 1. Global Broadcast
+        destinationAddresses.add("255.255.255.255")
+
+        // 2. User configured broadcast
+        if (targetPc.broadcastAddress.isNotBlank()) {
+            destinationAddresses.add(targetPc.broadcastAddress.trim())
+        }
+
+        // 3. Subnet broadcast calculated from IP (e.g. 192.168.0.12 -> 192.168.0.255)
+        if (targetPc.ipAddress.isNotBlank()) {
+            val ipParts = targetPc.ipAddress.trim().split(".")
+            if (ipParts.size == 4) {
+                destinationAddresses.add("${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.255")
+            }
+            // 4. Direct unicast to target IP
+            destinationAddresses.add(targetPc.ipAddress.trim())
+        }
+
+        val targetPort = if (targetPc.port in 1..65535) targetPc.port else 9
+        val portsToSend = if (targetPort != 7) listOf(targetPort, 7) else listOf(7, 9)
+
         var socket: DatagramSocket? = null
+        var packetsSentCount = 0
+
         try {
             val payload = WolPacketBuilder.buildMagicPacket(targetPc.macAddress, targetPc.secureOnPassword)
-            val destinationAddress = InetAddress.getByName(destinationHost)
 
             socket = DatagramSocket().apply {
                 broadcast = true
                 soTimeout = 3000
             }
 
-            val packet = DatagramPacket(payload, payload.size, destinationAddress, targetPort)
-            
-            // Send multiple packet bursts (standard best practice for WoL over UDP)
-            repeat(3) {
-                socket.send(packet)
+            for (destHost in destinationAddresses) {
+                try {
+                    val destAddress = InetAddress.getByName(destHost)
+                    for (p in portsToSend) {
+                        val packet = DatagramPacket(payload, payload.size, destAddress, p)
+                        // Send 3 bursts per target
+                        repeat(3) {
+                            socket.send(packet)
+                            packetsSentCount++
+                        }
+                    }
+                } catch (e: Exception) {
+                    SecureLogger.w("Failed transmitting to WoL target $destHost: ${e.message}")
+                }
             }
 
-            SecureLogger.i("Wake-on-LAN Magic Packet transmitted successfully")
-            WolResult.Success
+            if (packetsSentCount > 0) {
+                SecureLogger.i("Wake-on-LAN Magic Packets transmitted successfully ($packetsSentCount bursts across ${destinationAddresses.size} routes)")
+                WolResult.Success
+            } else {
+                WolResult.Failure("Failed to resolve any network broadcast targets.")
+            }
         } catch (e: Exception) {
             SecureLogger.e("Wake-on-LAN packet transmission failed", e)
             WolResult.Failure("Network transmission failed: ${e.localizedMessage ?: "Unknown network error"}")

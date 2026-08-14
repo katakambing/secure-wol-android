@@ -97,6 +97,13 @@ class DashboardViewModel(
         _pendingRemoteAction.value = null
     }
 
+    private val _showAgentSetupDialog = MutableStateFlow<PcDevice?>(null)
+    val showAgentSetupDialog: StateFlow<PcDevice?> = _showAgentSetupDialog.asStateFlow()
+
+    fun dismissAgentSetupDialog() {
+        _showAgentSetupDialog.value = null
+    }
+
     fun confirmRemoteAction() {
         val pair = _pendingRemoteAction.value ?: return
         val targetPc = pair.first
@@ -110,7 +117,7 @@ class DashboardViewModel(
             )
             when (result) {
                 is RemoteCommandResult.Success -> {
-                    _events.emit(DashboardEvent.ShowToast("${action.displayName} command sent to ${targetPc.name}"))
+                    _events.emit(DashboardEvent.ShowToast("⚡ ${action.displayName} command sent to ${targetPc.name}"))
                     // Refresh status after 2 seconds
                     kotlinx.coroutines.delay(2000)
                     val status = PcStatusChecker.checkStatus(targetPc.ipAddress)
@@ -119,7 +126,8 @@ class DashboardViewModel(
                     _pcStatusMap.value = map
                 }
                 is RemoteCommandResult.Failure -> {
-                    _events.emit(DashboardEvent.ShowToast(result.message))
+                    _showAgentSetupDialog.value = targetPc
+                    _events.emit(DashboardEvent.ShowToast("PC Companion Agent is not running on your PC"))
                 }
             }
         }

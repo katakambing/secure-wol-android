@@ -73,9 +73,16 @@ class PcRepository(private val context: Context) {
         SessionManager.validateSessionOrThrow()
 
         val currentList = loadPcList().toMutableList()
-        val index = currentList.indexOfFirst { it.id == device.id }
+        val cleanTargetMac = device.macAddress.replace(":", "").replace("-", "").trim().lowercase()
+        
+        // Find existing either by ID or by matching MAC address
+        val index = currentList.indexOfFirst {
+            it.id == device.id || it.macAddress.replace(":", "").replace("-", "").trim().lowercase() == cleanTargetMac
+        }
+
         if (index >= 0) {
-            currentList[index] = device
+            // Update existing entry keeping original ID
+            currentList[index] = device.copy(id = currentList[index].id)
         } else {
             currentList.add(device)
         }

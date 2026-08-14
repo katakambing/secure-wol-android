@@ -123,6 +123,19 @@ class DashboardViewModel(
         }
     }
 
+    fun deletePc(pc: PcDevice) {
+        if (!SessionManager.isSessionValid()) {
+            viewModelScope.launch {
+                _events.emit(DashboardEvent.SessionExpired)
+            }
+            return
+        }
+        pcRepository.deletePcDevice(pc.id)
+        viewModelScope.launch {
+            _events.emit(DashboardEvent.ShowToast("Removed ${pc.name}"))
+        }
+    }
+
     fun lockAppNow() {
         SessionManager.invalidateSession()
         viewModelScope.launch {

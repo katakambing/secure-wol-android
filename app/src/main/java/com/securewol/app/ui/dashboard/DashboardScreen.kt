@@ -77,6 +77,7 @@ fun DashboardScreen(
     val pcList by viewModel.pcList.collectAsState()
     val pendingPc by viewModel.pendingPowerOnPc.collectAsState()
     val isSendingWol by viewModel.isSendingWol.collectAsState()
+    var pcToDelete by remember { mutableStateOf<PcDevice?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -172,7 +173,8 @@ fun DashboardScreen(
                         PcDeviceCard(
                             pc = pc,
                             onPowerOn = { viewModel.onPowerOnClicked(pc) },
-                            onEdit = { onNavigateToEditPc(pc.id) }
+                            onEdit = { onNavigateToEditPc(pc.id) },
+                            onDelete = { pcToDelete = pc }
                         )
                     }
                 }
@@ -261,6 +263,57 @@ fun DashboardScreen(
                         }
                     }
                 )
+            // Delete Confirmation Modal
+            if (pcToDelete != null) {
+                val target = pcToDelete!!
+                AlertDialog(
+                    onDismissRequest = { pcToDelete = null },
+                    containerColor = SurfaceDark,
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = AccentCrimson,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    },
+                    title = {
+                        Text(
+                            text = "Remove PC?",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextPrimary
+                        )
+                    },
+                    text = {
+                        Text(
+                            text = "Are you sure you want to remove \"${target.name}\" (${target.maskedMac()}) from your configured PCs?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.deletePc(target)
+                                pcToDelete = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = AccentCrimson,
+                                contentColor = TextPrimary
+                            )
+                        ) {
+                            Text("Remove", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        OutlinedButton(
+                            onClick = { pcToDelete = null },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }
@@ -270,7 +323,8 @@ fun DashboardScreen(
 fun PcDeviceCard(
     pc: PcDevice,
     onPowerOn: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -286,7 +340,10 @@ fun PcDeviceCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
@@ -319,13 +376,23 @@ fun PcDeviceCard(
                     }
                 }
 
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit PC",
-                        tint = TextMuted,
-                        modifier = Modifier.size(18.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit PC",
+                            tint = TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete PC",
+                            tint = AccentCrimson.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 

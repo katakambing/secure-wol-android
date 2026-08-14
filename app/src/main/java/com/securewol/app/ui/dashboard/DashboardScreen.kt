@@ -109,6 +109,7 @@ fun DashboardScreen(
     var isPrivacyModeEnabled by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
+        viewModel.refreshDevices()
         viewModel.events.collect { event ->
             when (event) {
                 is DashboardEvent.ShowToast -> {

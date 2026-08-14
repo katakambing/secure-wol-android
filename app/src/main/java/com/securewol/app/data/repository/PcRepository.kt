@@ -53,6 +53,7 @@ class PcRepository(private val context: Context) {
                         broadcastAddress = obj.optString("broadcastAddress", "255.255.255.255"),
                         port = obj.optInt("port", 9),
                         secureOnPassword = if (obj.has("secureOnPassword") && !obj.isNull("secureOnPassword")) obj.getString("secureOnPassword") else null,
+                        agentAuthToken = if (obj.has("agentAuthToken") && !obj.isNull("agentAuthToken")) obj.getString("agentAuthToken") else null,
                         createdAtEpoch = obj.optLong("createdAtEpoch", System.currentTimeMillis())
                     )
                 )
@@ -121,11 +122,12 @@ class PcRepository(private val context: Context) {
                 put("broadcastAddress", pc.broadcastAddress)
                 put("port", pc.port)
                 put("secureOnPassword", pc.secureOnPassword)
+                put("agentAuthToken", pc.agentAuthToken)
                 put("createdAtEpoch", pc.createdAtEpoch)
             }
             array.put(obj)
         }
-        prefs.edit().putString(KEY_STORED_PCS_JSON, array.toString()).apply()
-        _pcListFlow.value = list
+        prefs.edit().putString(KEY_STORED_PCS_JSON, array.toString()).commit()
+        _pcListFlow.value = list.toList()
     }
 }

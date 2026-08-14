@@ -51,7 +51,12 @@ class DashboardViewModel(
     val events: SharedFlow<DashboardEvent> = _events.asSharedFlow()
 
     init {
+        refreshDevices()
         startStatusPolling()
+    }
+
+    fun refreshDevices() {
+        pcRepository.loadPcList()
     }
 
     fun startStatusPolling() {

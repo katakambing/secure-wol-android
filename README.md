@@ -86,3 +86,10 @@ SecureWolApp/
 2. Select **Open** and choose the directory `C:\Users\PC\.gemini\antigravity\scratch\SecureWolApp`.
 3. Let Gradle sync dependencies (Jetpack Compose, AndroidX Biometrics, AndroidX Security Crypto).
 4. Run on an Android device or emulator with API level 26+ (Android 8.0 - 14+).
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) - Copyright (c) 2026 Wan Muhammad Nur Iman.
+
